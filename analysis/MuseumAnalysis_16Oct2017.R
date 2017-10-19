@@ -17,6 +17,15 @@ library(MuMIn) #for model averaging
 require(lmtest) #for likelihood ratio test
 require(dplyr)
 
+library(ggplot2)
+library(maptools)
+library(tidyr)
+library(plyr)
+#for mapping
+library(ggmap)
+library(maps)
+library(mapdata)
+
 #---------------------------
 #READ AND MANIPULATE DATA
 
@@ -24,21 +33,265 @@ require(dplyr)
 setwd(paste(mydir, "data\\", sep=""))
 abs=read.csv("FullDataColiasMuseums.csv")
 
+abs$lon= abs$Long
+abs$lat= abs$Lat
 
-absM<- subset(abs,Sex =="M")
+#remove samples without locations
+abs= subset(abs, !is.na(abs$Long)&!is.na(abs$Lat) )
 
 #group nearby localities
-absM$NewLocation<- ClassifySites(absM$Location, absM$Long, absM$Lat, DistCut=5)    #radius of 5km
+ClassifySites= function(names, lon, lat, DistCut){
+  
+  new.names=names
+  stat.coords= cbind(lon,lat)
+  
+  for(r in 1:length(lon) ){
+    dists= spDistsN1(stat.coords, stat.coords[r,], longlat = TRUE) #find distances from focal site in km
+    new.names[which(dists<DistCut)]= new.names[r] #rename sites within cutoff radius
+  } #end loop sites
+  
+  return(new.names) #returns grouped site names
+}
+
+abs$NewLocation<- ClassifySites(abs$Location, abs$Long, abs$Lat, DistCut=5)    #radius of 5km
 
 #calculate Julian
-mdy=  paste(absM$Month,absM$Day,absM$Year, sep="-")
+mdy=  paste(abs$Month,abs$Day,abs$Year, sep="-")
 tmp <- as.POSIXlt(mdy, format = "%m-%d-%Y")
-absM$J=tmp$yday
+abs$doy=tmp$yday
 
 #abbreviate columns to control for NAs
 #absM= absM[,c("ID","NewLocation","Collection", "grey","Thorax","JulyAv","JulyMax","JuneAv","Year","estElevation","J", "Long","Lat")]
-absM= absM[,colnames(absM)!="BodyLength"]
+#abs= absM[,colnames(abs)!="BodyLength"]
 # take out body length due to NAs
+
+#make elevation numeric
+abs$estElevation = as.numeric(as.character(abs$estElevation))
+
+#specify regions
+abs$region= 1
+abs$region[which(abs$lat>42)]<-2
+abs$region[which(abs$lat>48)]<-3
+
+#fix spelling of Summit, check!
+abs[which(abs$County=="Sumit") ,"County"]<-"Summit"
+
+#Sex
+absM<- subset(abs,Sex =="M")
+
+#-----------------------
+#DATA COUNTS
+count=function(x) length(na.omit(x))
+
+abs1.count= aggregate(abs, list(abs$State, abs$Year), FUN="count")
+abs1.count= aggregate(absM, list(absM$NewLocation, absM$Year), FUN="count")
+
+abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
+
+#-------------------------
+#Subsample
+
+#Assign site ID
+sites= unique(absM$NewLocation)
+absM$siteID= match(absM$NewLocation, sites)
+absM$YrSite= paste(absM$Year, absM$siteID, sep="")
+
+Nruns= 50 #50 #number of bootstrapp runs                          
+Nsamp= 15 #max sample size of butterflies per site per year  
+
+z <- sapply(unique(absM$YrSite), FUN= function(x){ 
+  sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
+})
+absM.boot<- absM[unlist(z),]
+
+absM<- absM.boot
+#-------------------------
+
+#Exploratory plots by region
+ggplot(data=absM, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+
+#by county
+abs1.count= aggregate(absM, list(absM$County), FUN="count")
+counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
+absM2= absM[which(absM$County %in% counties) ,]
+
+ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+
+#Exploratory plots ~lat
+ggplot(data=absM, aes(x=lat, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+
+#ALberta 1980, n=144 
+abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
+ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=estElevation ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~Sex)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+
+#Select sites with good coverage
+abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
+#omit two 1920's specimens
+abs.sub= abs.sub[which(abs.sub$Year>1930), ]
+
+ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+
+#"EisenhowerTunnel" promising
+abs.sub1= absM[absM$NewLocation =="EisenhowerTunnel", ]
+mod1= lm(Corr.Val~Year+doy, data=abs.sub1)
+
+#-----------------------
+#CLIMATE DATA
+
+#DaymetR, https://khufkens.github.io/daymetr/
+#R prism
+#rnoaa: R coop data  ghcnd
+
+#-----------------------
+#MAKE INITIAL MAPS
+
+#set up map
+bbox <- ggmap::make_bbox(lon, lat, absM, f = 0.1)
+bbox[1]= bbox[1] -5
+bbox[2]= bbox[2] -5
+bbox[3]= bbox[3] +5
+bbox[4]= bbox[4] +5
+
+map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
+map1=ggmap(map_loc, margins=FALSE)
+
+#OLD VERSION  
+#  aper1.map<- map1 + geom_raster(data=aper1, aes(fill = abs), alpha=0.5)+ coord_cartesian()+ scale_fill_gradientn(colours=matlab.like(10), breaks=a.breaks, labels=a.lab)+ coord_fixed() + theme(legend.position="right")
+
+#+ geom_raster(data=absM, aes(fill =  Corr.Val), alpha=0.5) + coord_cartesian()
+#+ scale_fill_brewer(name="abs", palette="PuOr")+ coord_fixed() + theme(legend.position="right")+xlab(NULL)+ylab(NULL) #+annotate("text", x=-108,y=40, label= scens[scen.k], size=5)
+
+#abs
+aper1.map<- map1 +geom_point(data=absM, aes(color=Corr.Val) ) + coord_cartesian()
+#phen
+aper1.map<- map1 +geom_point(data=absM, aes(color=J) ) + coord_cartesian()
+
+#-------------------------------
+
+
+#----------------------
+#AGGREGATE BY COUNTY
+
+abs1= aggregate(abs, list(abs$Year, abs$County), FUN="mean", na.rm=TRUE)
+colnames(abs1)[1:2]= c("Year", "County")
+abs1.count= aggregate(abs, list(abs$County, abs$Year), FUN="count")
+
+abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
+
+abs.sub= abs[abs$County=="ClearCreek",]
+abs1.sub= abs1[abs1$County=="ClearCreek",]
+abs.sub= abs[abs$County=="Park",]
+abs1.sub= abs1[abs1$County=="Park",]
+abs.sub= abs[abs$County=="Boulder",]
+abs1.sub= abs1[abs1$County=="Boulder",]
+
+plot(abs1.sub$Year, abs1.sub$Grey)
+abline(lm(abs1.sub$Grey~abs1.sub$Year))
+
+plot(abs1.sub$JulyMeanT, abs1.sub$Grey)
+abline(lm(abs1.sub$Grey~abs1.sub$JulyMeanT))
+
+#--------------------------------
+
+absM1= na.omit(absM)
+absM1$estElevation = as.numeric(absM1$estElevation)
+
+mod1R <- lme(Corr.Val~Year*doy, random = ~1|Location, method = "ML", data = absM1)
+anova(mod1R)
+summary(mod1R)
+anova(mod1R,test="Chi")
+
+###Linear Models + Mantel Test
+# grey~ year
+mod1R <- lme(Corr.Val~Year+estElevation+J, random = ~1|Location, method = "ML", data = absM)
+anova(mod1R)
+summary(mod1R)
+anova(mod1R,test="Chi")
+
+dist1m<-dist(cbind(abs1$Lat, abs1$Long))
+dist0m<- dist(abs1$grey)
+dist1Rm<- dist(residuals(mod1R))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1Rm)
+
+# grey ~ July 
+mod1JulyMa <- lme(grey~JulyMax+estElevation, random = ~1|NewLocation, method = "ML", data = absM)
+summary(mod1JulyMa)
+anova(mod1JulyMa,test="Chi")
+dist1m<-dist(cbind(abs1$Lat, abs1$Long))
+dist0m<- dist(abs1$grey)
+dist1JulyMa<- dist(residuals(mod1JulyMa))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1JulyMa)
+
+#grey ~ June
+mod1JuneR <- lme(grey~JuneAv+estElevation, random = ~1|NewLocation, method = "ML", data = absM)
+summary(mod1JuneR)
+anova(mod1JuneR,test="Chi")
+dist1m<-dist(cbind(abs1$Lat, abs1$Long))
+dist0m<- dist(abs1$grey)
+dist1JuneRm<- dist(residuals(mod1JuneR))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1JuneRm)
+
+# Thoracic Fur
+fabsM<-subset(absM,absM$Collection=="UF"|absM$Collection=="Yale"|absM$Collection=="MW")
+
+# TF~ year
+mod1R <- lme(Thorax~Year+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
+anova(mod1R)
+summary(mod1R)
+anova(mod1R,test="Chi")
+
+dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
+dist0m<- dist(fabsM$Thorax)
+dist1Rm<- dist(residuals(mod1R))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1Rm)
+
+# TF ~ July 
+mod1JulyMa <- lme(Thorax~JulyMax+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
+summary(mod1JulyMa)
+anova(mod1JulyMa,test="Chi")
+
+dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
+dist0m<- dist(fabsM$Thorax)
+dist1JulyMa<- dist(residuals(mod1JulyMa))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1JulyMa)
+
+#TF ~ June
+mod1JuneR <- lme(Thorax~JuneAv+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
+summary(mod1JuneR)
+anova(mod1JuneR,test="Chi")
+
+dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
+dist0m<- dist(fabsM$Thorax)
+dist1JuneRm<- dist(residuals(mod1JuneR))
+
+mantel(dist1m, dist0m)
+mantel(dist1m, dist1JuneRm)
+
+
+
+#------------------------------
+
 
 #ESTIMATE CLIMATE FOR ADULT, PUPAL, COMBINED 
 setwd(paste(mydir, "data\\", sep=""))
