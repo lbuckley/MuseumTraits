@@ -26,6 +26,19 @@ library(ggmap)
 library(maps)
 library(mapdata)
 
+#daymetR, http://khufkens.github.io/daymetr/
+#if(!require(devtools)){install.package(devtools)}
+#devtools::install_github("khufkens/daymetr")
+library(daymetr)
+
+#test
+download_daymet(site = "Oak Ridge National Laboratories",
+                lat = 36.0133,
+                lon = -84.2625,
+                start = 1980,
+                end = 2010,
+                internal = TRUE)
+
 #---------------------------
 #READ AND MANIPULATE DATA
 
@@ -76,6 +89,9 @@ abs$region[which(abs$lat>48)]<-3
 #fix spelling of Summit, check!
 abs[which(abs$County=="Sumit") ,"County"]<-"Summit"
 
+#GET RID OF TWO SPECIMENS WITH J=171
+abs= abs[abs$doy>171,]
+
 #Sex
 absM<- subset(abs,Sex =="M")
 
@@ -107,51 +123,94 @@ absM.boot<- absM[unlist(z),]
 absM<- absM.boot
 #-------------------------
 
-#Exploratory plots by region
-ggplot(data=absM, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-
-#by county
-abs1.count= aggregate(absM, list(absM$County), FUN="count")
-counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
-absM2= absM[which(absM$County %in% counties) ,]
-
-ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-
-#Exploratory plots ~lat
-ggplot(data=absM, aes(x=lat, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-
-#ALberta 1980, n=144 
-abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
-ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=estElevation ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~Sex)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-
-#Select sites with good coverage
-abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
-#omit two 1920's specimens
-abs.sub= abs.sub[which(abs.sub$Year>1930), ]
-
-ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-
-#"EisenhowerTunnel" promising
-abs.sub1= absM[absM$NewLocation =="EisenhowerTunnel", ]
-mod1= lm(Corr.Val~Year+doy, data=abs.sub1)
-
-#-----------------------
 #CLIMATE DATA
 
 #DaymetR, https://khufkens.github.io/daymetr/
 #R prism
 #rnoaa: R coop data  ghcnd
+
+#Extract unique coordinates and years
+locs= aggregate(absM, list(absM$NewLocation, absM$Year), FUN="count")
+
+#CLIMAX
+#ESTIMATE CLIMATE FOR ADULT, PUPAL, COMBINED 
+setwd(paste(mydir, "data\\", sep=""))
+
+clim= read.csv("ClimaxCOOP_5.4.15.csv", na.strings = "-9999")  
+
+clim[,4:6]= clim[,4:6]/10   #convert to C
+clim$Year= substr(clim$DATE,1,4)
+
+#calculate Julian
+tmp <- as.POSIXlt(as.character(clim$DATE), format = "%Y%m%d")
+clim$J=tmp$yday
+clim$JY= paste(clim$J, clim$Year, sep="")
+
+#cut NAs 
+#absM= na.omit(absM)
+
+#match to temp
+absM$AdultTmax=NA
+absM$AdultTave=NA
+absM$ParentTmax=NA
+absM$ParentTave=NA
+absM$PupalTmax=NA
+absM$PupalTave=NA
+absM$LifeTmax=NA
+absM$LifeTave=NA
+
+absM$J=absM$doy
+
+for(i in 1:nrow(absM)){ #Lazily coding as a loop
+  adult= paste( (absM$J[i]-5):(absM$J[i]+5), absM$Year[i], sep="")      # expanded to 11 day window
+  # par.range= (absM$J[i]-10):(absM$J[i]+10)                             #@ Tried models with all permutations +-20, +- 10 , and using below percentile. 
+  ## TRY FIXING PARENTAL RANGE
+  par.range= 201:216  ## 25th and 75th percentile 
+  ## OPTIONAL CODE TO CONSTRAIN PARENTAL RANGE  
+  # x= length(which(par.range<171))
+  #  if(x>0) par.range= (min(par.range)+x):(max(par.range)+x)
+  #  x= length(which(par.range>225))
+  # if(x>0) par.range= (min(par.range)-x):(max(par.range)-x)
+  
+  parent= paste( par.range, absM$Year[i]-1, sep="")  #YEAR BEFORE 
+  pupal= paste( (absM$J[i]-26):(absM$J[i]-6), absM$Year[i], sep="")      
+  
+  adult.TMAX= clim[match(adult, clim$JY),"TMAX"]
+  adult.TMIN= clim[match(adult, clim$JY),"TMIN"]
+  parent.TMAX= clim[match(parent, clim$JY),"TMAX"]
+  parent.TMIN= clim[match(parent, clim$JY),"TMIN"]
+  pupal.TMAX= clim[match(pupal, clim$JY),"TMAX"]
+  pupal.TMIN= clim[match(pupal, clim$JY),"TMIN"]
+  
+  absM$AdultTmax[i]=mean(adult.TMAX, na.rm=TRUE)
+  absM$AdultTave[i]=mean(c(adult.TMAX, adult.TMIN), na.rm=TRUE)
+  absM$ParentTmax[i]=mean(parent.TMAX, na.rm=TRUE)
+  absM$ParentTave[i]=mean(c(parent.TMAX, adult.TMIN), na.rm=TRUE)
+  absM$PupalTmax[i]=mean(pupal.TMAX, na.rm=TRUE)
+  absM$PupalTave[i]=mean(c(pupal.TMAX, pupal.TMIN), na.rm=TRUE)
+  absM$LifeTmax[i]=mean(c(pupal.TMAX,adult.TMAX), na.rm=TRUE)
+  absM$LifeTave[i]=mean(c(pupal.TMAX,adult.TMAX,pupal.TMIN,adult.TMIN), na.rm=TRUE)
+} #end loop rows
+
+#cut NAs 
+#absM= na.omit(absM)
+
+#Add seasonal climate
+#J= 152 to 212, June and July
+clim.jj= clim[which(clim$J>151 & clim$J<213),]
+clim.jj$TMEAN= (clim.jj$TMAX + clim.jj$TMIN)/2
+clim.jj= aggregate(clim.jj, list(clim.jj$Year), FUN="mean", na.rm=TRUE)
+clim.jj$Year= clim.jj$Group.1
+
+match1= match(absM$Year, clim.jj$Year)
+absM$JJTave= clim.jj$TMEAN[match1] 
+
+#-------
+#For loveland pass
+#Cabin creek 051186, http://climate.colostate.edu/data_access.html
+#http://climatetrends.colostate.edu
+
+clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
 
 #-----------------------
 #MAKE INITIAL MAPS
@@ -178,29 +237,61 @@ aper1.map<- map1 +geom_point(data=absM, aes(color=Corr.Val) ) + coord_cartesian(
 aper1.map<- map1 +geom_point(data=absM, aes(color=J) ) + coord_cartesian()
 
 #-------------------------------
+#Exploratory plots by region
+ggplot(data=absM, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM, aes(x=PupalTave, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+#AdultTave, PupalTave, LifeTave
 
+#by county
+abs1.count= aggregate(absM, list(absM$County), FUN="count")
+counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
+absM2= absM[which(absM$County %in% counties) ,]
 
-#----------------------
-#AGGREGATE BY COUNTY
+ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
-abs1= aggregate(abs, list(abs$Year, abs$County), FUN="mean", na.rm=TRUE)
-colnames(abs1)[1:2]= c("Year", "County")
-abs1.count= aggregate(abs, list(abs$County, abs$Year), FUN="count")
+#Exploratory plots ~lat
+ggplot(data=absM, aes(x=lat, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+ggplot(data=absM, aes(x=lat, y = doy, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
-abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
+#ALberta 1980, n=144 
+abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
+ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=estElevation ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~Sex)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
-abs.sub= abs[abs$County=="ClearCreek",]
-abs1.sub= abs1[abs1$County=="ClearCreek",]
-abs.sub= abs[abs$County=="Park",]
-abs1.sub= abs1[abs1$County=="Park",]
-abs.sub= abs[abs$County=="Boulder",]
-abs1.sub= abs1[abs1$County=="Boulder",]
+#Select sites with good coverage
+abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
+#omit two 1920's specimens
+abs.sub= abs.sub[which(abs.sub$Year>1930), ]
+#body length to numeric
+abs.sub$BodyLength= as.numeric(as.character(abs.sub$BodyLength))
 
-plot(abs1.sub$Year, abs1.sub$Grey)
-abline(lm(abs1.sub$Grey~abs1.sub$Year))
+ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+ggplot(data=abs.sub, aes(x=Year, y = Thorax, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+ggplot(data=abs.sub, aes(x=Year, y = BodyLength, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+ggplot(data=abs.sub, aes(x=JJTave, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+#AdultTave, PupalTave, LifeTave, JJTave
 
-plot(abs1.sub$JulyMeanT, abs1.sub$Grey)
-abline(lm(abs1.sub$Grey~abs1.sub$JulyMeanT))
+#"EisenhowerTunnel" promising
+abs.sub1= absM[absM$NewLocation =="EisenhowerTunnel", ]
+mod1= lm(Corr.Val~Year+doy*LifeTave, data=abs.sub1)
+
+#-----------------------
+
 
 #--------------------------------
 
@@ -293,69 +384,6 @@ mantel(dist1m, dist1JuneRm)
 #------------------------------
 
 
-#ESTIMATE CLIMATE FOR ADULT, PUPAL, COMBINED 
-setwd(paste(mydir, "data\\", sep=""))
-
-clim= read.csv("ClimaxCOOP_5.4.15.csv", na.strings = "-9999")  
-
-clim[,4:6]= clim[,4:6]/10   #convert to C
-clim$Year= substr(clim$DATE,1,4)
-
-#calculate Julian
-tmp <- as.POSIXlt(as.character(clim$DATE), format = "%Y%m%d")
-clim$J=tmp$yday
-clim$JY= paste(clim$J, clim$Year, sep="")
-
-#cut NAs 
-absM= na.omit(absM)
-
-#GET RID OF TWO SPECIMENS WITH J=171
-absM= absM[absM$J>171,]
-
-#match to temp
-absM$AdultTmax=NA
-absM$AdultTave=NA
-absM$ParentTmax=NA
-absM$ParentTave=NA
-absM$PupalTmax=NA
-absM$PupalTave=NA
-absM$LifeTmax=NA
-absM$LifeTave=NA
-
-
-for(i in 1:nrow(absM)){ #Lazily coding as a loop
- adult= paste( (absM$J[i]-5):(absM$J[i]+5), absM$Year[i], sep="")      # expanded to 11 day window
- # par.range= (absM$J[i]-10):(absM$J[i]+10)                             #@ Tried models with all permutations +-20, +- 10 , and using below percentile. 
-## TRY FIXING PARENTAL RANGE
-    par.range= 201:216  ## 25th and 75th percentile 
-## OPTIONAL CODE TO CONSTRAIN PARENTAL RANGE  
- # x= length(which(par.range<171))
-#  if(x>0) par.range= (min(par.range)+x):(max(par.range)+x)
-#  x= length(which(par.range>225))
- # if(x>0) par.range= (min(par.range)-x):(max(par.range)-x)
-
-    parent= paste( par.range, absM$Year[i]-1, sep="")  #YEAR BEFORE 
-  pupal= paste( (absM$J[i]-26):(absM$J[i]-6), absM$Year[i], sep="")      
-  
-  adult.TMAX= clim[match(adult, clim$JY),"TMAX"]
-  adult.TMIN= clim[match(adult, clim$JY),"TMIN"]
-  parent.TMAX= clim[match(parent, clim$JY),"TMAX"]
-  parent.TMIN= clim[match(parent, clim$JY),"TMIN"]
-  pupal.TMAX= clim[match(pupal, clim$JY),"TMAX"]
-  pupal.TMIN= clim[match(pupal, clim$JY),"TMIN"]
-  
-  absM$AdultTmax[i]=mean(adult.TMAX, na.rm=TRUE)
-  absM$AdultTave[i]=mean(c(adult.TMAX, adult.TMIN), na.rm=TRUE)
-  absM$ParentTmax[i]=mean(parent.TMAX, na.rm=TRUE)
-  absM$ParentTave[i]=mean(c(parent.TMAX, adult.TMIN), na.rm=TRUE)
-  absM$PupalTmax[i]=mean(pupal.TMAX, na.rm=TRUE)
-  absM$PupalTave[i]=mean(c(pupal.TMAX, pupal.TMIN), na.rm=TRUE)
-  absM$LifeTmax[i]=mean(c(pupal.TMAX,adult.TMAX), na.rm=TRUE)
-  absM$LifeTave[i]=mean(c(pupal.TMAX,adult.TMAX,pupal.TMIN,adult.TMIN), na.rm=TRUE)
-} #end loop rows
-
-#cut NAs 
-absM= na.omit(absM)
 
 #normalize
 
