@@ -106,21 +106,21 @@ abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 
 #-------------------------
 #Subsample
-
-#Assign site ID
-sites= unique(absM$NewLocation)
-absM$siteID= match(absM$NewLocation, sites)
-absM$YrSite= paste(absM$Year, absM$siteID, sep="")
-
-Nruns= 50 #50 #number of bootstrapp runs                          
-Nsamp= 15 #max sample size of butterflies per site per year  
-
-z <- sapply(unique(absM$YrSite), FUN= function(x){ 
-  sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
-})
-absM.boot<- absM[unlist(z),]
-
-absM<- absM.boot
+# 
+# #Assign site ID
+# sites= unique(absM$NewLocation)
+# absM$siteID= match(absM$NewLocation, sites)
+# absM$YrSite= paste(absM$Year, absM$siteID, sep="")
+# 
+# Nruns= 50 #50 #number of bootstrapp runs                          
+# Nsamp= 15 #max sample size of butterflies per site per year  
+# 
+# z <- sapply(unique(absM$YrSite), FUN= function(x){ 
+#   sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
+# })
+# absM.boot<- absM[unlist(z),]
+# 
+# absM<- absM.boot
 #-------------------------
 
 #CLIMATE DATA
@@ -205,12 +205,15 @@ clim.jj$Year= clim.jj$Group.1
 match1= match(absM$Year, clim.jj$Year)
 absM$JJTave= clim.jj$TMEAN[match1] 
 
+#save
+absM.all= absM
+
 #-------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
 #http://climatetrends.colostate.edu
 
-clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
+#clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
 
 #-----------------------
 #MAKE INITIAL MAPS
@@ -286,16 +289,96 @@ ggplot(data=abs.sub, aes(x=JJTave, y = Corr.Val, color=Year ))+geom_point(alpha=
   facet_wrap(~NewLocation)+geom_smooth(method="lm") 
 #AdultTave, PupalTave, LifeTave, JJTave
 
-#"EisenhowerTunnel" promising
-abs.sub1= absM[absM$NewLocation =="EisenhowerTunnel", ]
+#=================================
+#"EisenhowerTunnel"/ Loveland pass ANALYSIS
+abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
 mod1= lm(Corr.Val~Year+doy*LifeTave, data=abs.sub1)
 
-#-----------------------
+#normalize
+abs2<-scale(abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")], center=TRUE, scale=FALSE)
+abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")]=abs2
 
+absM<- na.omit(abs.sub1[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year")])
 
-#--------------------------------
+#phenology
+mod1= lm(absM$J ~ absM$Year * absM$PupalTave)
+anova(mod1, type=2)
+#Strong interaction influence phenology
 
-absM1= na.omit(absM)
+#---------------------------------------------------
+#BOOTSTRAP
+
+#Assign site ID
+sites= unique(absM$NewLocation)
+absM$siteID= match(absM$NewLocation, sites)
+absM$YrSite= paste(absM$Year, absM$siteID, sep="")
+
+Nruns= 50 #50 #number of bootstrapp runs                           #@have not changed since we agreed. 
+Nsamp= 15 #max sample size of butterflies per site per year    #@have not changed since we agreed. 
+
+#set up data collection
+out.mods= array(data=NA, dim=c(5,11,Nruns))
+out.coefs=array(data=NA, dim=c(7,5,Nruns))
+out.zs=array(data=NA, dim=c(6,4,Nruns))
+out.stats= matrix(NA, 3, Nruns)
+
+thorax.out.mods= array(data=NA, dim=c(5,11,Nruns))
+thorax.out.coefs=array(data=NA, dim=c(7,5,Nruns))
+thorax.out.zs=array(data=NA, dim=c(6,4,Nruns))
+thorax.out.stats= matrix(NA, 3, Nruns)
+
+#bootstrap
+for(r in 1:Nruns){
+  
+  #sub sample
+  z <- sapply(unique(absM$YrSite), FUN= function(x){ 
+    sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
+  })
+  absM.boot<- absM[unlist(z),]
+  
+  #run model
+  mod1= lm(Corr.Val~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM.boot, na.action=na.fail)
+  
+  #MODEL SELECTION
+  d_SAR40=dredge(mod1)
+  
+  #extract best 5 models and weights
+  best.mods= d_SAR40[1:5,]
+  
+  ma_SAR40= model.avg(d_SAR40)
+  
+  #extract coefficients
+  name.ord= c("(Intercept)","J","Year","ParentTave","PupalTave","J:PupalTave","lambda")
+  ct= summary(ma_SAR40)$coefmat.full
+  match1= match(name.ord, rownames(ct))
+  coef.mods=ct[match1,]
+  
+  #add importance values
+  imports= rep(NA, nrow(coef.mods))
+  match1=match(names(ma_SAR40$importance), row.names(coef.mods))
+  imports[match1]= ma_SAR40$importance
+  coef.mods= cbind(coef.mods, imports)
+  
+  
+}#end bootstrap
+
+##UPDATE OUTPUT
+#AVERAGE
+coefs= apply(out.coefs, MARGIN=c(1,2), FUN="mean") 
+zs= apply(out.zs, MARGIN=c(1,2), FUN="mean") 
+stats=  apply(out.stats, MARGIN=c(1), FUN="mean") 
+
+thorax.coefs= apply(thorax.out.coefs, MARGIN=c(1,2), FUN="mean") 
+thorax.zs= apply(thorax.out.zs, MARGIN=c(1,2), FUN="mean") 
+thorax.stats=  apply(thorax.out.stats, MARGIN=c(1), FUN="mean") 
+
+#=========================
+#MODELS WHOLE DATA SET
+
+#subset by region
+absM.reg= subset(absM.all, absM.all$region==3)
+
+absM1= na.omit(absM.reg)
 absM1$estElevation = as.numeric(absM1$estElevation)
 
 mod1R <- lme(Corr.Val~Year*doy, random = ~1|Location, method = "ML", data = absM1)
@@ -303,97 +386,20 @@ anova(mod1R)
 summary(mod1R)
 anova(mod1R,test="Chi")
 
-###Linear Models + Mantel Test
-# grey~ year
-mod1R <- lme(Corr.Val~Year+estElevation+J, random = ~1|Location, method = "ML", data = absM)
-anova(mod1R)
-summary(mod1R)
-anova(mod1R,test="Chi")
-
-dist1m<-dist(cbind(abs1$Lat, abs1$Long))
-dist0m<- dist(abs1$grey)
-dist1Rm<- dist(residuals(mod1R))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1Rm)
-
-# grey ~ July 
-mod1JulyMa <- lme(grey~JulyMax+estElevation, random = ~1|NewLocation, method = "ML", data = absM)
-summary(mod1JulyMa)
-anova(mod1JulyMa,test="Chi")
-dist1m<-dist(cbind(abs1$Lat, abs1$Long))
-dist0m<- dist(abs1$grey)
-dist1JulyMa<- dist(residuals(mod1JulyMa))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1JulyMa)
-
-#grey ~ June
-mod1JuneR <- lme(grey~JuneAv+estElevation, random = ~1|NewLocation, method = "ML", data = absM)
-summary(mod1JuneR)
-anova(mod1JuneR,test="Chi")
-dist1m<-dist(cbind(abs1$Lat, abs1$Long))
-dist0m<- dist(abs1$grey)
-dist1JuneRm<- dist(residuals(mod1JuneR))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1JuneRm)
-
-# Thoracic Fur
-fabsM<-subset(absM,absM$Collection=="UF"|absM$Collection=="Yale"|absM$Collection=="MW")
-
-# TF~ year
-mod1R <- lme(Thorax~Year+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
-anova(mod1R)
-summary(mod1R)
-anova(mod1R,test="Chi")
-
-dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
-dist0m<- dist(fabsM$Thorax)
-dist1Rm<- dist(residuals(mod1R))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1Rm)
-
-# TF ~ July 
-mod1JulyMa <- lme(Thorax~JulyMax+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
-summary(mod1JulyMa)
-anova(mod1JulyMa,test="Chi")
-
-dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
-dist0m<- dist(fabsM$Thorax)
-dist1JulyMa<- dist(residuals(mod1JulyMa))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1JulyMa)
-
-#TF ~ June
-mod1JuneR <- lme(Thorax~JuneAv+estElevation, random = ~1|NewLocation, method = "ML", data = fabsM)
-summary(mod1JuneR)
-anova(mod1JuneR,test="Chi")
-
-dist1m<-dist(cbind(fabsM$Lat, abs1$Long))
-dist0m<- dist(fabsM$Thorax)
-dist1JuneRm<- dist(residuals(mod1JuneR))
-
-mantel(dist1m, dist0m)
-mantel(dist1m, dist1JuneRm)
-
-
-
 #------------------------------
-
-
+#SPATIAL MODEL
+absM= absM.reg
+absM$grey= absM$Corr.Val
 
 #normalize
-
 abs2<-scale(absM[,c("PupalTave","ParentTave","J","Year")], center=TRUE, scale=FALSE)
 
-#library(clusterSim)
-#abs2= data.Normalization (absM[,c("PupalTave","ParentTave","J","Year")],type="n1",normalization="column")
 absM[,c("PupalTave","ParentTave","J","Year")]=abs2
 
 #@  absM<-subset(absM,absM$Collection=="UF"|abM3$Collection=="Yale"|absM$Collection=="MW")       #@ run subset for thorax data to confirm. I did this in a hacky way for the sake of time. 
+
+#Remove NAs
+absM= na.omit(absM)
 
 #---------------------------------------------------
 #BOOTSTRAP
@@ -511,23 +517,13 @@ tarlm <- lm(absM.boot$grey~absM.boot$PupalTave+absM.boot$ParentTave+absM.boot$J+
 #tarlm <- lm(absM.boot$grey~absM.boot$PupalTave+absM.boot$ParentTave+absM.boot$J+absM.boot$Year+absM.boot$PupalTave*absM.boot$J+absM.boot$ParentTave*absM.boot$J, data=df)
 
 #---------------------------------
-my.prplot= function (g, i, xlabs)  #beautify plot
-{
-  xl <- xlabs[i]
-  yl <- paste("")
-  x <- model.matrix(g)[, i + 1]
-  plot(x, g$coeff[i + 1] * x + g$res, xlab = xl, ylab = yl, col=rgb(0.2,0.2, 0.2, 0.5),pch=16)        #@I played with different plot characters to get different plots. Not sold
-  abline(0, g$coeff[i + 1])
-  invisible()
-}
-#--------------
 
 xlabs= c("Pupal T (?C)","Flight season T (?C)", "Date of collection (J)", "Year", "Pupal T (?C): Date")
 
 #@ xlabs= c("Pupal T (°C)","Parent T (°C)", "Date of collection (J)", "Year", "Pupal T(°C) : Date", "Parent T (°C): Date")  #@ Changed Labs to be capitalized. Doesn't really matter... 
 
-setwd(paste(mydir, "figs\\", sep=""))
-pdf("GreyPR_norm.pdf",height = 6, width = 10)
+#setwd(paste(mydir, "figs\\", sep=""))
+#pdf("GreyPR_norm.pdf",height = 6, width = 10)
 
 par(mfrow=c(2,3), cex=1.1, lwd=1, mar=c(3,2, 1, 1), mgp=c(1.3, 0.5, 0), oma=c(0,2,0,0), bty="l", cex.lab=1.2)
 my.prplot(tarlm, 1, xlabs)
@@ -539,7 +535,7 @@ my.prplot(tarlm, 5, xlabs)
 
 mtext("Partial residual of wing melanism (grey level)", side=2, line = -0.5, cex=1.3, outer=TRUE)
 
-dev.off()
+#dev.off()
 #----------------------------
 #FUR
 m_x.errorSAR40 <- errorsarlm(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM.boot, m.sw40, method="eigen", quiet=FALSE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
@@ -552,7 +548,7 @@ str(df)
 tarlm <- lm(absM.boot$Thorax~absM.boot$PupalTave+absM.boot$ParentTave+absM.boot$J+absM.boot$Year+absM.boot$PupalTave*absM.boot$J, data=df)
 #tarlm <- lm(absM.boot$Thorax~absM.boot$PupalTave+absM.boot$ParentTave+absM.boot$J+absM.boot$Year+absM.boot$PupalTave*absM.boot$J+absM.boot$ParentTave*absM.boot$J, data=df)
 
-pdf("FurPR_norm.pdf",height = 6, width = 10)
+#pdf("FurPR_norm.pdf",height = 6, width = 10)
 
 par(mfrow=c(2,3), cex=1.1, lwd=1, mar=c(3,2, 1, 1), mgp=c(1.3, 0.5, 0), oma=c(0,2,0,0), bty="l", cex.lab=1.2)
 my.prplot(tarlm, 1, xlabs)
@@ -564,7 +560,7 @@ my.prplot(tarlm, 5, xlabs)
 
 mtext("Partial residual of setae length (mm)", side=2, line = -0.5, cex=1.3, outer=TRUE)
 
-dev.off()
+#dev.off()
 #=========================================
 # OTHER ANALYSES
 
@@ -591,31 +587,3 @@ hist(absM$J)
 hist(absM$Year)
 
 #--------------------------
-#LINEAR MODELS
-mod1 <- lm(absM$grey~absM$PupalTave+absM$ParentTave+absM$J+absM$Year+absM$PupalTave*absM$J, data=absM.boot)
-mod1.RE <- lme(grey~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J,random=~1|NewLocation, data=absM.boot, method="ML")      
- #@to include and serve the same purpose as before, should we not include the "new location" term as random and run it on the full data set? From my perspective, the point of the model comparison has changed since adding the bootstrap (which is why I thought we may want to leave it out). Is the question- do we get the same result in accounting for space in two different ways? OR is it- do we get the same qualitat  ive result when running the simplest linear model on a subset of the data?  
-summary(mod1)
-anova(mod1)
-dist1m<-dist(cbind(absM.boot$Latitude, absM.boot$Long))
-dist0m<- dist(absM.boot$grey)
-dist1Rm<- dist(residuals(mod1.RE))
-  #@ These models perform actually take care of the spatial autocorrelation as test with a mantel test AND approximately align with SAR significance 
-
-mod2 <- lm(absM$Thorax~absM$PupalTave+absM$ParentTave+absM$J+absM$Year+absM$PupalTave*absM$J, data=absM.boot)
-
-mod2.RE <- lme(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J, random=~1|NewLocation, data=absM.boot, method="ML")        #@ see above logic
-summary(mod2)
-anova(mod2)
-
-dist1m<-dist(cbind(absM.boot$Latitude, absM.boot$Long))
-dist0m<- dist(absM.boot$Thorax)
-dist1Rm<- dist(residuals(mod2))
-
-mantel.rtest(dist1m, dist0m)
-mantel.rtest(dist1m, dist1Rm)
-
-
-#@ ran once with whole data set and once with the subset for TF. 
-
-#=========================================

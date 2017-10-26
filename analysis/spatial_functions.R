@@ -119,3 +119,17 @@ names(thorax.mod.stats)[1]= "NKPseudoR2"
 return(list(best.mods, coef.mods, zs, mod.stats, thorax.best.mods, thorax.coef.mods, thorax.zs, thorax.mod.stats) )
 
 } #end spatial analysis function
+
+#=============================
+my.prplot= function (g, i, xlabs)  #beautify plot
+{
+  xl <- xlabs[i]
+  yl <- paste("")
+  x <- model.matrix(g)[, i + 1]
+  plot(x, g$coeff[i + 1] * x + g$res, xlab = xl, ylab = yl, col=rgb(0.2,0.2, 0.2, 0.5),pch=16)        #@I played with different plot characters to get different plots. Not sold
+  abline(0, g$coeff[i + 1])
+  invisible()
+}
+#--------------
+
+
