@@ -208,6 +208,10 @@ absM$JJTave= clim.jj$TMEAN[match1]
 #save
 absM.all= absM
 
+#PLOT TEMP TREND ##*
+ggplot(data=absM.all, aes(x=Year, y = JJTave, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm")
+
 #-------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
@@ -241,30 +245,44 @@ aper1.map<- map1 +geom_point(data=absM, aes(color=J) ) + coord_cartesian()
 
 #-------------------------------
 #Exploratory plots by region
-ggplot(data=absM, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM, aes(x=PupalTave, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-#AdultTave, PupalTave, LifeTave
 
+#Phenology
+ggplot(data=absM.all, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+
+#Abs
+ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+  #by year
+ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+
+#-------
 #by county
 abs1.count= aggregate(absM, list(absM$County), FUN="count")
 counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
 absM2= absM[which(absM$County %in% counties) ,]
 
-ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+#Phenology
+ggplot(data=absM2, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm")
+ggplot(data=absM2, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm")
 
+#Abs
+ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm")
+#by year
+ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~County)+geom_smooth(method="lm")
+
+#--------
 #Exploratory plots ~lat
-ggplot(data=absM, aes(x=lat, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+
+#Lower elevation at higher lats
 ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
-ggplot(data=absM, aes(x=lat, y = doy, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
 #ALberta 1980, n=144 
@@ -289,21 +307,42 @@ ggplot(data=abs.sub, aes(x=JJTave, y = Corr.Val, color=Year ))+geom_point(alpha=
   facet_wrap(~NewLocation)+geom_smooth(method="lm") 
 #AdultTave, PupalTave, LifeTave, JJTave
 
+ggplot(data=abs.sub, aes(x=Year, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+ggplot(data=abs.sub, aes(x=JJTave, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+
 #=================================
 #"EisenhowerTunnel"/ Loveland pass ANALYSIS
 abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
-mod1= lm(Corr.Val~Year+doy*LifeTave, data=abs.sub1)
+mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
 
 #normalize
 abs2<-scale(abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")], center=TRUE, scale=FALSE)
 abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")]=abs2
 
-absM<- na.omit(abs.sub1[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year")])
+absM<- na.omit(abs.sub1[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year","JJTave")])
 
-#phenology
-mod1= lm(absM$J ~ absM$Year * absM$PupalTave)
+#----------
+#phenology ##*
+ggplot(data=abs.sub, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") 
+
+ggplot(data=abs.sub, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") 
+
+#Results in annual pattern
+ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") 
+
+mod1= lm(absM$Corr.Val ~ absM$JJTave*absM$J) 
 anova(mod1, type=2)
 #Strong interaction influence phenology
+prplot(mod1,1)
+prplot(mod1,2)
+prplot(mod1,3)
+prplot(mod1,4)
+
 
 #---------------------------------------------------
 #BOOTSTRAP
@@ -587,3 +626,16 @@ hist(absM$J)
 hist(absM$Year)
 
 #--------------------------
+#try kernal density regression
+
+install.packages("np")
+library(np)
+
+#bandwidth: julian day per year
+
+bw <- npregbw(absM.all$Corr.Val ~ absM.all$J + absM.all$Year)
+aov(bw)
+
+
+
+
