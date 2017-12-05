@@ -208,10 +208,6 @@ absM$JJTave= clim.jj$TMEAN[match1]
 #save
 absM.all= absM
 
-#PLOT TEMP TREND ##*
-ggplot(data=absM.all, aes(x=Year, y = JJTave, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm")
-
 #-------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
@@ -219,7 +215,8 @@ ggplot(data=absM.all, aes(x=Year, y = JJTave, color=Corr.Val ))+geom_point(alpha
 
 #clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
 
-#-----------------------
+#=======================
+# Result 1. Maps and overview plots
 #MAKE INITIAL MAPS
 
 #set up map
@@ -232,87 +229,30 @@ bbox[4]= bbox[4] +5
 map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE)
 
-#OLD VERSION  
-#  aper1.map<- map1 + geom_raster(data=aper1, aes(fill = abs), alpha=0.5)+ coord_cartesian()+ scale_fill_gradientn(colours=matlab.like(10), breaks=a.breaks, labels=a.lab)+ coord_fixed() + theme(legend.position="right")
+#elevation
+aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian()
 
-#+ geom_raster(data=absM, aes(fill =  Corr.Val), alpha=0.5) + coord_cartesian()
-#+ scale_fill_brewer(name="abs", palette="PuOr")+ coord_fixed() + theme(legend.position="right")+xlab(NULL)+ylab(NULL) #+annotate("text", x=-108,y=40, label= scens[scen.k], size=5)
-
-#abs
-aper1.map<- map1 +geom_point(data=absM, aes(color=Corr.Val) ) + coord_cartesian()
-#phen
-aper1.map<- map1 +geom_point(data=absM, aes(color=J) ) + coord_cartesian()
-
-#-------------------------------
-#Exploratory plots by region
-
-#Phenology
-ggplot(data=absM.all, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-
-#Abs
-ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-  #by year
-ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-
-#-------
-#by county
-abs1.count= aggregate(absM, list(absM$County), FUN="count")
-counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
-absM2= absM[which(absM$County %in% counties) ,]
-
-#Phenology
-ggplot(data=absM2, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm")
-ggplot(data=absM2, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm")
-
-#Abs
-ggplot(data=absM2, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm")
-#by year
-ggplot(data=absM2, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~County)+geom_smooth(method="lm")
-
-#--------
-#Exploratory plots ~lat
+#-------------------
+#Elevation inset plot
 
 #Lower elevation at higher lats
 ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
-#ALberta 1980, n=144 
-abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
-ggplot(data=abs.sub, aes(x=doy, y = Corr.Val, color=estElevation ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~Sex)+geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+#==================================
+#Result 2.	Temp change over time
 
-#Select sites with good coverage
-abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
-#omit two 1920's specimens
-abs.sub= abs.sub[which(abs.sub$Year>1930), ]
-#body length to numeric
-abs.sub$BodyLength= as.numeric(as.character(abs.sub$BodyLength))
+#PLOT TEMP TREND
+ggplot(data=absM.all, aes(x=Year, y = JJTave, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm")
 
-ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-ggplot(data=abs.sub, aes(x=Year, y = Thorax, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-ggplot(data=abs.sub, aes(x=Year, y = BodyLength, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-ggplot(data=abs.sub, aes(x=JJTave, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-#AdultTave, PupalTave, LifeTave, JJTave
+#! CHECK ONE VERY HOT YEAR
 
-ggplot(data=abs.sub, aes(x=Year, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
-ggplot(data=abs.sub, aes(x=JJTave, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~NewLocation)+geom_smooth(method="lm") 
+#==================================
+#Result 3.	Shift in phenology as a function of temperature (Jun, July average; test others)
+#Result 4.	Shift in phenotype as a function of phenology
 
-#=================================
+#LOVELAND PASS
 #"EisenhowerTunnel"/ Loveland pass ANALYSIS
 abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
 mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
@@ -335,158 +275,124 @@ ggplot(data=abs.sub, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) 
 ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
 
-mod1= lm(absM$Corr.Val ~ absM$JJTave*absM$J) 
-anova(mod1, type=2)
-#Strong interaction influence phenology
-prplot(mod1,1)
-prplot(mod1,2)
-prplot(mod1,3)
-prplot(mod1,4)
+#------------
+#REGIONS
 
+#Phenology
+ggplot(data=absM.all, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
 
-#---------------------------------------------------
+#Abs
+ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+#by year
+ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+
+#-------------
+#OTHER SUBSETS EXPLORED
+
+#by county
+abs1.count= aggregate(absM, list(absM$County), FUN="count")
+counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
+absM2= absM[which(absM$County %in% counties) ,]
+
+#ALberta 1980, n=144 
+abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
+
+#Select sites with good coverage
+abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
+#omit two 1920's specimens
+abs.sub= abs.sub[which(abs.sub$Year>1930), ]
+#body length to numeric
+abs.sub$BodyLength= as.numeric(as.character(abs.sub$BodyLength))
+
+#=====================
+#STATISTICS
+
 #BOOTSTRAP
-
 #Assign site ID
 sites= unique(absM$NewLocation)
 absM$siteID= match(absM$NewLocation, sites)
 absM$YrSite= paste(absM$Year, absM$siteID, sep="")
 
-Nruns= 50 #50 #number of bootstrapp runs                           #@have not changed since we agreed. 
-Nsamp= 15 #max sample size of butterflies per site per year    #@have not changed since we agreed. 
+Nruns= 50 #50 #number of bootstrapp runs                          
+Nsamp= 15 #max sample size of butterflies per site per year   
+
+boot.lm<- function(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp){
+  out<- matrix(NA, nrow=Nruns, ncol=5)
+  
+  for(r in 1:Nruns){
+    
+    #sub sample
+    z <- sapply(unique(sites), FUN= function(x){ 
+      sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
+    })
+    x.boot<- x[unlist(z)]
+    y.boot<- y[unlist(z)]
+    
+    #run model
+    mod1= lm(y.boot~x.boot)
+    mod1$coefficients[2]
+  
+    out[r,]=c(summary(mod1)$coefficients[2,], summary(mod1)$r.squared )
+  
+  }# end loop
+  
+    #average
+    return( colMeans(out) )
+}
+
+#-------
+boot.lm(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp)
+
+#--------------------
+#SPATIAL ANALYSIS  
+
+#dat is matrix of y followed by predictor variables, assume interactions for now
+
+#normalize
+abs2<-scale(absM[,c("JJTave","doy","Year")], center=TRUE, scale=FALSE)
+absM[,c("JJTave","doy","Year")]=abs2
+#Remove NAs
+dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year")])
+
+boot.spatlm<- function(dat, sites= dat$YrSite, Nruns,Nsamp){
+  out<- matrix(NA, nrow=Nruns, ncol=5)
 
 #set up data collection
 out.mods= array(data=NA, dim=c(5,11,Nruns))
 out.coefs=array(data=NA, dim=c(7,5,Nruns))
 out.zs=array(data=NA, dim=c(6,4,Nruns))
 out.stats= matrix(NA, 3, Nruns)
-
-thorax.out.mods= array(data=NA, dim=c(5,11,Nruns))
-thorax.out.coefs=array(data=NA, dim=c(7,5,Nruns))
-thorax.out.zs=array(data=NA, dim=c(6,4,Nruns))
-thorax.out.stats= matrix(NA, 3, Nruns)
 
 #bootstrap
 for(r in 1:Nruns){
   
   #sub sample
-  z <- sapply(unique(absM$YrSite), FUN= function(x){ 
-    sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
+  z <- sapply(unique(sites), FUN= function(x){ 
+    sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
   })
   absM.boot<- absM[unlist(z),]
   
-  #run model
-  mod1= lm(Corr.Val~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM.boot, na.action=na.fail)
+  #run spatial model
+  out=spat.mod(absM.boot)
   
-  #MODEL SELECTION
-  d_SAR40=dredge(mod1)
+  #extract output
+  bm=out[[1]]
+  out.mods[,,r]=as.matrix(bm)
+  out.coefs[,,r]=out[[2]]
+  out.zs[,,r]=out[[3]]
+  out.stats[,r]=out[[4]]
   
-  #extract best 5 models and weights
-  best.mods= d_SAR40[1:5,]
+  bm=out[[5]]
+  thorax.out.mods[,,r]=as.matrix(bm)
+  thorax.out.coefs[,,r]=out[[6]]
+  thorax.out.zs[,,r]=out[[7]]
+  thorax.out.stats[,r]=out[[8]]
   
-  ma_SAR40= model.avg(d_SAR40)
-  
-  #extract coefficients
-  name.ord= c("(Intercept)","J","Year","ParentTave","PupalTave","J:PupalTave","lambda")
-  ct= summary(ma_SAR40)$coefmat.full
-  match1= match(name.ord, rownames(ct))
-  coef.mods=ct[match1,]
-  
-  #add importance values
-  imports= rep(NA, nrow(coef.mods))
-  match1=match(names(ma_SAR40$importance), row.names(coef.mods))
-  imports[match1]= ma_SAR40$importance
-  coef.mods= cbind(coef.mods, imports)
-  
-  
-}#end bootstrap
-
-##UPDATE OUTPUT
-#AVERAGE
-coefs= apply(out.coefs, MARGIN=c(1,2), FUN="mean") 
-zs= apply(out.zs, MARGIN=c(1,2), FUN="mean") 
-stats=  apply(out.stats, MARGIN=c(1), FUN="mean") 
-
-thorax.coefs= apply(thorax.out.coefs, MARGIN=c(1,2), FUN="mean") 
-thorax.zs= apply(thorax.out.zs, MARGIN=c(1,2), FUN="mean") 
-thorax.stats=  apply(thorax.out.stats, MARGIN=c(1), FUN="mean") 
-
-#=========================
-#MODELS WHOLE DATA SET
-
-#subset by region
-absM.reg= subset(absM.all, absM.all$region==3)
-
-absM1= na.omit(absM.reg)
-absM1$estElevation = as.numeric(absM1$estElevation)
-
-mod1R <- lme(Corr.Val~Year*doy, random = ~1|Location, method = "ML", data = absM1)
-anova(mod1R)
-summary(mod1R)
-anova(mod1R,test="Chi")
-
-#------------------------------
-#SPATIAL MODEL
-absM= absM.reg
-absM$grey= absM$Corr.Val
-
-#normalize
-abs2<-scale(absM[,c("PupalTave","ParentTave","J","Year")], center=TRUE, scale=FALSE)
-
-absM[,c("PupalTave","ParentTave","J","Year")]=abs2
-
-#@  absM<-subset(absM,absM$Collection=="UF"|abM3$Collection=="Yale"|absM$Collection=="MW")       #@ run subset for thorax data to confirm. I did this in a hacky way for the sake of time. 
-
-#Remove NAs
-absM= na.omit(absM)
-
-#---------------------------------------------------
-#BOOTSTRAP
-
-#Assign site ID
-sites= unique(absM$NewLocation)
-absM$siteID= match(absM$NewLocation, sites)
-absM$YrSite= paste(absM$Year, absM$siteID, sep="")
-
-Nruns= 50 #50 #number of bootstrapp runs                           #@have not changed since we agreed. 
-Nsamp= 15 #max sample size of butterflies per site per year    #@have not changed since we agreed. 
-
-#set up data collection
-out.mods= array(data=NA, dim=c(5,11,Nruns))
-out.coefs=array(data=NA, dim=c(7,5,Nruns))
-out.zs=array(data=NA, dim=c(6,4,Nruns))
-out.stats= matrix(NA, 3, Nruns)
-
-thorax.out.mods= array(data=NA, dim=c(5,11,Nruns))
-thorax.out.coefs=array(data=NA, dim=c(7,5,Nruns))
-thorax.out.zs=array(data=NA, dim=c(6,4,Nruns))
-thorax.out.stats= matrix(NA, 3, Nruns)
-
-#bootstrap
-for(r in 1:Nruns){
-  
-#sub sample
-z <- sapply(unique(absM$YrSite), FUN= function(x){ 
-  sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
-})
-absM.boot<- absM[unlist(z),]
-
-#run spatial model
-out=spat.mod(absM.boot)
-
-#extract output
-bm=out[[1]]
-out.mods[,,r]=as.matrix(bm)
-out.coefs[,,r]=out[[2]]
-out.zs[,,r]=out[[3]]
-out.stats[,r]=out[[4]]
-
-bm=out[[5]]
-thorax.out.mods[,,r]=as.matrix(bm)
-thorax.out.coefs[,,r]=out[[6]]
-thorax.out.zs[,,r]=out[[7]]
-thorax.out.stats[,r]=out[[8]]
-
 }#end bootstrap
 
 #PROCESS OUTPUT
@@ -522,6 +428,39 @@ stats
 thorax.coefs
 thorax.zs
 thorax.stats
+
+
+
+
+#=================================
+
+#PArtial residual plot
+mod1= lm(absM$Corr.Val ~ absM$JJTave*absM$J) 
+anova(mod1, type=2)
+#Strong interaction influence phenology
+prplot(mod1,1)
+prplot(mod1,2)
+prplot(mod1,3)
+prplot(mod1,4)
+
+
+#---------------------------------------------------
+
+#=========================
+#MODELS WHOLE DATA SET
+
+#subset by region
+absM.reg= subset(absM.all, absM.all$region==3)
+
+absM1= na.omit(absM.reg)
+absM1$estElevation = as.numeric(absM1$estElevation)
+
+mod1R <- lme(Corr.Val~Year*doy, random = ~1|Location, method = "ML", data = absM1)
+anova(mod1R)
+summary(mod1R)
+anova(mod1R,test="Chi")
+
+#------------------------------
 
 #===================================================
 #PARTIAL REGRESSION PLOTS
@@ -624,17 +563,6 @@ hist(absM$PupalTave)
 hist(absM$ParentTave)
 hist(absM$J)
 hist(absM$Year)
-
-#--------------------------
-#try kernal density regression
-
-install.packages("np")
-library(np)
-
-#bandwidth: julian day per year
-
-bw <- npregbw(absM.all$Corr.Val ~ absM.all$J + absM.all$Year)
-aov(bw)
 
 
 
