@@ -17,113 +17,34 @@ ClassifySites= function(names, lon, lat, DistCut){
 count=function(x) length(x)
 
 #===================================================
-# SPATIAL ANALYSIS
+# LM BOOTSTRAP
 
-#FUNCTION TO RUN SPATIAL ANALYIS, error model, 40km neighborhood
-spat.mod= function(absM){
-
-#define spatial neighborhood
-coords= as.matrix(absM[,c("Long","Lat")])
-## Build neighborhood
-m.nb40 <- dnearneigh(coords,0,40,longlat=TRUE)
-# establish weights for the given list of neighbors, "B" = binary (all equal), "W" = row standardized
-m.sw40 <- nb2listw(m.nb40, glist=NULL, style="W", zero.policy=TRUE)
-
-#--------
-#GREY MODELS
-#Include interaction of J and temps as temps change through season
-m_SAR40= spautolm(grey~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
-#m_SAR40= spautolm(grey~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J, data=absM, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
-
-#MODEL SELECTION
-d_SAR40=dredge(m_SAR40)
-# d_SAR40=dredge(m_SAR40, beta = "sd")
-
-#extract best 5 models and weights
-best.mods= d_SAR40[1:5,]
-
-ma_SAR40= model.avg(d_SAR40)
-
-#extract coefficients
-name.ord= c("(Intercept)","J","Year","ParentTave","PupalTave","J:PupalTave","lambda")
-ct= summary(ma_SAR40)$coefmat.full
-match1= match(name.ord, rownames(ct))
-coef.mods=ct[match1,]
-
-#add importance values
-imports= rep(NA, nrow(coef.mods))
-match1=match(names(ma_SAR40$importance), row.names(coef.mods))
-imports[match1]= ma_SAR40$importance
-coef.mods= cbind(coef.mods, imports)
-
-#full model as all terms have some support
-m_x.errorSAR40 <- errorsarlm(grey~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-#m_x.errorSAR40 <- errorsarlm(grey~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-
-mod.sum= summary(m_x.errorSAR40, Nagelkerke=TRUE, Hausman=TRUE)
-
-#extract Z values and pr(>|z|) 
-zs=mod.sum$Coef[,1:4] #z, p
-
-#Log-likelihood ratio tests
-# only use LR.sarlm when nested. otherwise compare Loglikelihood values
-mod.null <- errorsarlm(absM$grey~1, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-lr1= LR.sarlm(m_x.errorSAR40, mod.null)
-
-mod.stats= c(mod.sum$NK,lr1$statistic, lr1$p.value )
-names(mod.stats)[1]= "NKPseudoR2"
-
-#---------------
-#THORACIC FUR MODELS
-
-#Include interaction of J and temps as temps change through season
-m_SAR40= spautolm(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
-#m_SAR40= spautolm(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J, data=absM, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
-
-#MODEL SELECTION
-d_SAR40=dredge(m_SAR40)
-
-#extract best 5 models and weights
-thorax.best.mods= d_SAR40[1:5,]
-
-ma_SAR40= model.avg(d_SAR40)
-
-#extract coefficients
-ct= summary(ma_SAR40)$coefmat.full
-match1= match(name.ord, rownames(ct))
-thorax.coef.mods=ct[match1,]
-
-#add importance values
-imports= rep(NA, nrow(thorax.coef.mods))
-match1=match(names(ma_SAR40$importance), row.names(thorax.coef.mods))
-imports[match1]= ma_SAR40$importance
-thorax.coef.mods= cbind(thorax.coef.mods, imports)
-
-#full model as all terms have some support
-m_x.errorSAR40 <- errorsarlm(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-#m_x.errorSAR40 <- errorsarlm(Thorax~PupalTave+ParentTave+J+Year+PupalTave*J+ParentTave*J, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-
-mod.sum= summary(m_x.errorSAR40, Nagelkerke=TRUE, Hausman=TRUE)
-
-#extract Z values and pr(>|z|) 
-thorax.zs=mod.sum$Coef[,1:4] #z, p
-
-#Log-likelihood ratio tests
-# only use LR.sarlm when nested. otherwise compare Loglikelihood values
-mod.null <- errorsarlm(absM$Thorax~1, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
-lr1= LR.sarlm(m_x.errorSAR40, mod.null)
-
-thorax.mod.stats= c(mod.sum$NK,lr1$statistic, lr1$p.value )
-names(thorax.mod.stats)[1]= "NKPseudoR2"
-
-return(list(best.mods, coef.mods, zs, mod.stats, thorax.best.mods, thorax.coef.mods, thorax.zs, thorax.mod.stats) )
-
-} #end spatial analysis function
+boot.lm<- function(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp){
+  out<- matrix(NA, nrow=Nruns, ncol=5)
+  
+  for(r in 1:Nruns){
+    
+    #sub sample
+    z <- sapply(unique(sites), FUN= function(x){ 
+      sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
+    })
+    x.boot<- x[unlist(z)]
+    y.boot<- y[unlist(z)]
+    
+    #run model
+    mod1= lm(y.boot~x.boot)
+    mod1$coefficients[2]
+    
+    out[r,]=c(summary(mod1)$coefficients[2,], summary(mod1)$r.squared )
+    
+  }# end loop
+  
+  #average
+  return( colMeans(out) )
+}
 
 #=================================
-dat= na.omit( absM[,c("Corr.Val","JJTave","doy", "lon","lat") ] )
-lon= dat$lon
-lat= dat$lat
+#SPATIAL ANALYSIS
 
 spat.mod.var(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat)
   
@@ -181,6 +102,55 @@ spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"
   
 } #end spatial analysis function
 
+#=================================
+#BOOTSTRAP SPATIAL MODEL
+
+boot.spatlm<- function(dat, sites= dat$YrSite, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat, Nruns,Nsamp){
+  
+  #set up data collection
+  out.mods= array(data=NA, dim=c(5,length(xvars)+6,Nruns))
+  out.coefs=array(data=NA, dim=c(length(xvars)+2,5,Nruns))
+  out.zs=array(data=NA, dim=c(length(xvars)+1,4,Nruns))
+  out.stats= matrix(NA, 3, Nruns)
+  
+  #bootstrap
+  for(r in 1:Nruns){
+    
+    #sub sample
+    z <- sapply(unique(sites), FUN= function(x){ 
+      sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
+    })
+    absM.boot<- dat[unlist(z),]
+    
+    #run spatial model
+    out= spat.mod.var(absM.boot, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), absM.boot$lon, absM.boot$lat)
+    
+    #extract output
+    bm=out[[1]]
+    out.mods[,,r]=as.matrix(bm)
+    out.coefs[,,r]=out[[2]]
+    out.zs[,,r]=out[[3]]
+    out.stats[,r]=out[[4]]
+    
+  }#end bootstrap
+  
+  #PROCESS OUTPUT
+  #ADD NAMES
+  dimnames(out.mods)[[2]]= colnames(out[[1]])
+  dimnames(out.coefs)[[1]]= rownames(out[[2]])
+  dimnames(out.coefs)[[2]]= colnames(out[[2]])
+  dimnames(out.zs)[[1]]= rownames(out[[3]])
+  dimnames(out.zs)[[2]]= colnames(out[[3]])
+  rownames(out.stats)= names(out[[4]])
+  
+  #AVERAGE
+  coefs= apply(out.coefs, MARGIN=c(1,2), FUN="mean") 
+  zs= apply(out.zs, MARGIN=c(1,2), FUN="mean") 
+  stats=  apply(out.stats, MARGIN=c(1), FUN="mean") 
+  
+  return(list(coefs, zs, stats) )
+  
+} #end bootstrap function
 
 #=============================
 my.prplot= function (g, i, xlabs)  #beautify plot
@@ -193,62 +163,3 @@ my.prplot= function (g, i, xlabs)  #beautify plot
   invisible()
 }
 #--------------
-
-#BOOTSTRAP AND DREDGE LINEAR MODEL
-#set up data collection
-out.mods= array(data=NA, dim=c(5,11,Nruns))
-out.coefs=array(data=NA, dim=c(7,5,Nruns))
-out.zs=array(data=NA, dim=c(6,4,Nruns))
-out.stats= matrix(NA, 3, Nruns)
-
-thorax.out.mods= array(data=NA, dim=c(5,11,Nruns))
-thorax.out.coefs=array(data=NA, dim=c(7,5,Nruns))
-thorax.out.zs=array(data=NA, dim=c(6,4,Nruns))
-thorax.out.stats= matrix(NA, 3, Nruns)
-
-#bootstrap
-for(r in 1:Nruns){
-  
-  #sub sample
-  z <- sapply(unique(absM$YrSite), FUN= function(x){ 
-    sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
-  })
-  absM.boot<- absM[unlist(z),]
-  
-  #run model
-  mod1= lm(Corr.Val~PupalTave+ParentTave+J+Year+PupalTave*J, data=absM.boot, na.action=na.fail)
-  
-  #MODEL SELECTION
-  d_SAR40=dredge(mod1)
-  
-  #extract best 5 models and weights
-  best.mods= d_SAR40[1:5,]
-  
-  ma_SAR40= model.avg(d_SAR40)
-  
-  #extract coefficients
-  name.ord= c("(Intercept)","J","Year","ParentTave","PupalTave","J:PupalTave","lambda")
-  ct= summary(ma_SAR40)$coefmat.full
-  match1= match(name.ord, rownames(ct))
-  coef.mods=ct[match1,]
-  
-  #add importance values
-  imports= rep(NA, nrow(coef.mods))
-  match1=match(names(ma_SAR40$importance), row.names(coef.mods))
-  imports[match1]= ma_SAR40$importance
-  coef.mods= cbind(coef.mods, imports)
-  
-  
-}#end bootstrap
-
-##UPDATE OUTPUT
-#AVERAGE
-coefs= apply(out.coefs, MARGIN=c(1,2), FUN="mean") 
-zs= apply(out.zs, MARGIN=c(1,2), FUN="mean") 
-stats=  apply(out.stats, MARGIN=c(1), FUN="mean") 
-
-thorax.coefs= apply(thorax.out.coefs, MARGIN=c(1,2), FUN="mean") 
-thorax.zs= apply(thorax.out.zs, MARGIN=c(1,2), FUN="mean") 
-thorax.stats=  apply(thorax.out.stats, MARGIN=c(1), FUN="mean") 
-
-
