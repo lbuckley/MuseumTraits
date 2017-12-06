@@ -121,14 +121,14 @@ return(list(best.mods, coef.mods, zs, mod.stats, thorax.best.mods, thorax.coef.m
 } #end spatial analysis function
 
 #=================================
-absM2= na.omit(absM)
-lon= absM2$Long
-lat= absM2$Lat
-dat= absM2[,c("Corr.Val","JJTave","doy") ]
+dat= na.omit( absM[,c("Corr.Val","JJTave","doy", "lon","lat") ] )
+lon= dat$lon
+lat= dat$lat
 
-
+spat.mod.var(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat)
+  
 #FUNCTION TO RUN SPATIAL ANALYIS, error model, 40km neighborhood
-spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","JJTave:doy"), lon, lat){
+spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat){
   
   #define spatial neighborhood
   coords= as.matrix(cbind(lon,lat))
@@ -162,7 +162,7 @@ spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","JJTave:doy"
   coef.mods= cbind(coef.mods, imports)
   
   #full model as all terms have some support
-  m_x.errorSAR40 <- errorsarlm(as.formula(paste(yvar, "~", paste(xvars, collapse="+"))), data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
+  m_x.errorSAR40 <- errorsarlm(as.formula(paste(yvar, "~", paste(xvars, collapse="+"))), data=dat, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
  
   mod.sum= summary(m_x.errorSAR40, Nagelkerke=TRUE, Hausman=TRUE)
   
@@ -171,7 +171,7 @@ spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","JJTave:doy"
   
   #Log-likelihood ratio tests
   # only use LR.sarlm when nested. otherwise compare Loglikelihood values
-  mod.null <- errorsarlm(yvar~1, data=absM, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
+  mod.null <- errorsarlm(as.formula(paste(yvar,"~1")), data=dat, m.sw40, method="eigen", quiet=TRUE, zero.policy=TRUE, na.action=na.fail, interval=c(-0.5,0.5),tol.solve=1e-25)
   lr1= LR.sarlm(m_x.errorSAR40, mod.null)
   
   mod.stats= c(mod.sum$NK,lr1$statistic, lr1$p.value )

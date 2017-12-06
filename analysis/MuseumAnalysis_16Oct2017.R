@@ -351,21 +351,23 @@ boot.lm(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp)
 #--------------------
 #SPATIAL ANALYSIS  
 
-#dat is matrix of y followed by predictor variables, assume interactions for now
-
 #normalize
 abs2<-scale(absM[,c("JJTave","doy","Year")], center=TRUE, scale=FALSE)
 absM[,c("JJTave","doy","Year")]=abs2
 #Remove NAs
-dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year")])
+dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year", "lon","lat","YrSite")])
+lon= dat$lon
+lat= dat$lat
 
-boot.spatlm<- function(dat, sites= dat$YrSite, Nruns,Nsamp){
-  out<- matrix(NA, nrow=Nruns, ncol=5)
+boot.spatlm(dat, sites= dat$YrSite, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon=dat$lon, lat=dat$lat, Nruns,Nsamp)
+
+#---------  
+boot.spatlm<- function(dat, sites= dat$YrSite, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat, Nruns,Nsamp){
 
 #set up data collection
-out.mods= array(data=NA, dim=c(5,11,Nruns))
-out.coefs=array(data=NA, dim=c(7,5,Nruns))
-out.zs=array(data=NA, dim=c(6,4,Nruns))
+out.mods= array(data=NA, dim=c(5,length(xvars)+6,Nruns))
+out.coefs=array(data=NA, dim=c(length(xvars)+2,5,Nruns))
+out.zs=array(data=NA, dim=c(length(xvars)+1,4,Nruns))
 out.stats= matrix(NA, 3, Nruns)
 
 #bootstrap
@@ -375,10 +377,10 @@ for(r in 1:Nruns){
   z <- sapply(unique(sites), FUN= function(x){ 
     sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
   })
-  absM.boot<- absM[unlist(z),]
+  absM.boot<- dat[unlist(z),]
   
   #run spatial model
-  out=spat.mod(absM.boot)
+  out= spat.mod.var(absM.boot, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), absM.boot$lon, absM.boot$lat)
   
   #extract output
   bm=out[[1]]
@@ -386,12 +388,6 @@ for(r in 1:Nruns){
   out.coefs[,,r]=out[[2]]
   out.zs[,,r]=out[[3]]
   out.stats[,r]=out[[4]]
-  
-  bm=out[[5]]
-  thorax.out.mods[,,r]=as.matrix(bm)
-  thorax.out.coefs[,,r]=out[[6]]
-  thorax.out.zs[,,r]=out[[7]]
-  thorax.out.stats[,r]=out[[8]]
   
 }#end bootstrap
 
@@ -404,33 +400,14 @@ dimnames(out.zs)[[1]]= rownames(out[[3]])
 dimnames(out.zs)[[2]]= colnames(out[[3]])
 rownames(out.stats)= names(out[[4]])
 
-dimnames(thorax.out.mods)[[2]]= colnames(out[[5]])
-dimnames(thorax.out.coefs)[[1]]= rownames(out[[6]])
-dimnames(thorax.out.coefs)[[2]]= colnames(out[[6]])
-dimnames(thorax.out.zs)[[1]]= rownames(out[[7]])
-dimnames(thorax.out.zs)[[2]]= colnames(out[[7]])
-rownames(thorax.out.stats)= names(out[[8]])
-
 #AVERAGE
 coefs= apply(out.coefs, MARGIN=c(1,2), FUN="mean") 
 zs= apply(out.zs, MARGIN=c(1,2), FUN="mean") 
 stats=  apply(out.stats, MARGIN=c(1), FUN="mean") 
 
-thorax.coefs= apply(thorax.out.coefs, MARGIN=c(1,2), FUN="mean") 
-thorax.zs= apply(thorax.out.zs, MARGIN=c(1,2), FUN="mean") 
-thorax.stats=  apply(thorax.out.stats, MARGIN=c(1), FUN="mean") 
+return(list(coefs, zs, stats) )
 
-#WRITE OUT
-coefs # MODEL AVERAGING OUTPUT
-zs #FULL MODEL OUTPUT
-stats
-
-thorax.coefs
-thorax.zs
-thorax.stats
-
-
-
+} #end bootstrap function
 
 #=================================
 
