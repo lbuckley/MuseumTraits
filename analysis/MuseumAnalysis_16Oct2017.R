@@ -243,8 +243,9 @@ ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8
 #Result 2.	Temp change over time
 
 #PLOT TEMP TREND
-ggplot(data=absM.all, aes(x=Year, y = JJTave, color=Corr.Val ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm")
+ggplot(data=absM.all, aes(x=Year, y = JJTave))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm")+xlim(1950,2012)
+  
 
 #! CHECK ONE VERY HOT YEAR
 
@@ -265,31 +266,70 @@ absM<- na.omit(abs.sub1[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","Paren
 
 #----------
 #phenology ##*
-ggplot(data=abs.sub, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig2a=ggplot(data=abs.sub, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
 
-ggplot(data=abs.sub, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig2b=ggplot(data=abs.sub, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
 
 #Results in annual pattern
-ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+figs1a=ggplot(data=abs.sub, aes(x=Year, y = doy, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
+
+figs1b=ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") 
+
+#FIG 2
+library(grid)
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,1)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+print(fig2a,vp=vplayout(1,1))
+print(fig2b,vp=vplayout(2,1))
+#print(fig2c,vp=vplayout(3,1))
+
+#FIG S1
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,1)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+print(figs1a,vp=vplayout(1,1))
+print(figs1b,vp=vplayout(2,1))
 
 #------------
 #REGIONS
 
 #Phenology
-ggplot(data=absM.all, aes(x=Year, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+figs2a<-ggplot(data=absM.all, aes(x=Year, y = doy, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
-ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig3a<- ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 
 #Abs
-ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 #by year
-ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
+
+#---------
+#Fig 3
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,1)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+print(fig3a,vp=vplayout(1,1))
+print(fig3b,vp=vplayout(2,1))
+#print(fig3c,vp=vplayout(3,1))
+
+#Fig S2
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,1)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+print(figs2a,vp=vplayout(1,1))
+print(figs2b,vp=vplayout(2,1))
 
 #-------------
 #OTHER SUBSETS EXPLORED
@@ -311,6 +351,7 @@ abs.sub$BodyLength= as.numeric(as.character(abs.sub$BodyLength))
 
 #=====================
 #STATISTICS
+absM<- absM.all
 
 #BOOTSTRAP
 #Assign site ID
@@ -325,7 +366,7 @@ Nsamp= 15 #max sample size of butterflies per site per year
 abs2<-scale(absM[,c("JJTave","doy","Year")], center=TRUE, scale=FALSE)
 absM[,c("JJTave","doy","Year")]=abs2
 #Remove NAs
-dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year", "lon","lat","YrSite")])
+dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year", "lon","lat","YrSite","region","NewLocation")])
 
 #-------
 boot.lm(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp)
@@ -334,6 +375,14 @@ boot.lm(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp)
 #SPATIAL ANALYSIS  
 
 boot.spatlm(dat, sites= dat$YrSite, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon=dat$lon, lat=dat$lat, Nruns,Nsamp)
+
+#All sites
+
+
+mod1= boot.lm(x=dat$JJTave, y=dat$doy, sites= dat$YrSite, Nruns,Nsamp)
+
+
+
 
 #=========================================
 
