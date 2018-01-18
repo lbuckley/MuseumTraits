@@ -29,15 +29,7 @@ library(mapdata)
 #daymetR, http://khufkens.github.io/daymetr/
 #if(!require(devtools)){install.package(devtools)}
 #devtools::install_github("khufkens/daymetr")
-library(daymetr)
-
-#test
-download_daymet(site = "Oak Ridge National Laboratories",
-                lat = 36.0133,
-                lon = -84.2625,
-                start = 1980,
-                end = 2010,
-                internal = TRUE)
+#library(daymetr)
 
 #---------------------------
 #READ AND MANIPULATE DATA
@@ -199,14 +191,149 @@ for(i in 1:nrow(absM)){ #Lazily coding as a loop
 #J= 152 to 212, June and July
 clim.jj= clim[which(clim$J>151 & clim$J<213),]
 clim.jj$TMEAN= (clim.jj$TMAX + clim.jj$TMIN)/2
+
+#counts
+clim.counts= aggregate(clim.jj, list(clim.jj$Year), FUN="count")
+clim.years= clim.counts[which(clim.counts$STATION>50) ,"Group.1"]
+clim.years= as.numeric(as.character(clim.years))
+#require 50 days of data #FIx 1980?
+clim.jj= clim.jj[which(clim.jj$Year %in% clim.years),]
+
 clim.jj= aggregate(clim.jj, list(clim.jj$Year), FUN="mean", na.rm=TRUE)
 clim.jj$Year= clim.jj$Group.1
+clim.jj$Year= as.numeric(as.character(clim.jj$Year))
 
 match1= match(absM$Year, clim.jj$Year)
 absM$JJTave= clim.jj$TMEAN[match1] 
 
 #save
 absM.all= absM
+
+#-------
+#Try prism data
+#http://ropensci.github.io/prism/
+#https://rpubs.com/collnell/get_prism
+
+library(raster)
+
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\PRISM_tmean_stable_4kmM2_198101_201705_bil\\")
+
+#sort by year
+absM= absM.all[sort(absM.all$Year),]
+#years
+years= unique(absM.all$Year)
+years.rec= years[ which(years %in% 1981:2017) ]
+
+p.dat= array(data=NA, dim=c(length(years.rec), 2, nrow(absM.all) ))
+
+#extract data for each specimen (speed up by restricting to unique specimen)
+pts<-SpatialPointsDataFrame(coords=absM.all[,c('lon','lat')], 
+                            data=absM.all, proj4string = CRS("+proj=longlat +ellps=WGS84 +no_defs"))
+
+#look at overall temporal temperature trend by examining all locations
+
+for(k in 1:length(years.rec) ){
+
+#JUNE
+f.june= paste("PRISM_tmean_stable_4kmM2_",years.rec[k],"06_bil.bil",sep="")
+p<- raster(f.june)
+##crop
+#ext= extent(t(matrix(c( -127,-98,30,61), nrow=2)))
+#p.crop=crop(p, ext)
+
+p.dat[k,1,]<-extract(p, pts, na.rm=FALSE)
+
+#JULY
+f.july= paste("PRISM_tmean_stable_4kmM2_",years.rec[k],"07_bil.bil",sep="")
+p<- raster(f.july)
+
+p.dat[k,2,]<-extract(p, pts, na.rm=FALSE)
+
+}
+
+p.rec.june= cbind(years.rec, p.dat[,1,])
+p.rec.july= cbind(years.rec, p.dat[,2,])
+
+#write out
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\")
+write.csv(cbind(years.rec,p.dat[,1,]), "june_recent_tmean.csv" )
+write.csv(cbind(years.rec,p.dat[,2,]), "july_recent_tmean.csv" )
+
+#------
+#Historic data 
+
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\PRISM_1895_1980\\")
+
+years.hist= years[ which(years %in% 1895:1980) ]
+
+p.dat= array(data=NA, dim=c(length(years.hist), 2, nrow(absM.all) ))
+
+#look at overall temporal temperature trend by examining all locations
+
+for(k in 1:length(years.hist) ){
+  
+  #JUNE
+  f.june= paste("PRISM_tmean_stable_4kmM2_",years.hist[k],"06_bil.bil",sep="")
+  p<- raster(f.june)
+  ##crop
+  #ext= extent(t(matrix(c( -127,-98,30,61), nrow=2)))
+  #p.crop=crop(p, ext)
+  
+  p.dat[k,1,]<-extract(p, pts, na.rm=FALSE)
+  
+  #JULY
+  f.july= paste("PRISM_tmean_stable_4kmM2_",years.hist[k],"07_bil.bil",sep="")
+  p<- raster(f.july)
+  
+  p.dat[k,2,]<-extract(p, pts, na.rm=FALSE)
+  
+}
+
+p.hist.june= cbind(years.hist, p.dat[,1,])
+p.hist.july= cbind(years.hist, p.dat[,2,])
+
+#write out
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\")
+write.csv(cbind(years.hist,p.dat[,1,]), "june_historic_tmean.csv" )
+write.csv(cbind(years.hist,p.dat[,2,]), "july_historic_tmean.csv" )
+
+#-----------------
+#Plot temperature trend
+
+#combine
+p.june= rbind(p.hist.june, p.rec.june)
+p.july= rbind(p.hist.july, p.rec.july)
+
+p.june.ave= rowMeans(p.june[,2:983], na.rm=TRUE)
+p.july.ave= rowMeans(p.july[,2:983], na.rm=TRUE)
+
+p.june.ave= cbind(p.june[,1], p.june.ave, rep("june",73))
+p.july.ave= cbind(p.june[,1], p.july.ave, rep("july",73))
+
+#plot
+p.clim= rbind(p.june.ave, p.july.ave )
+p.clim= as.data.frame(p.clim)
+colnames(p.clim)=c("year","temp","month" )
+p.clim$year= as.numeric(as.character(p.clim$year))
+p.clim$temp= as.numeric(as.character(p.clim$temp))
+
+ggplot(data=p.clim, aes(x=year, y = temp, color=month))+geom_line() +theme_classic()
+
+#----------
+#Add PRISM data
+match.years= match(absM.all$Year, p.june[,1])
+
+absM.all$Tjune.prism= NA
+absM.all$Tjuly.prism= NA
+
+#match data
+for(k in 1:nrow(absM.all) ){
+  absM.all$Tjune.prism[k]= p.june[match.years[k],k+1]
+  absM.all$Tjuly.prism[k]= p.july[match.years[k],k+1]
+}
+
+#ave of june and july
+absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 
 #-------
 #For loveland pass
@@ -246,8 +373,7 @@ ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8
 ggplot(data=absM.all, aes(x=Year, y = JJTave))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm")+xlim(1950,2012)
   
-
-#! CHECK ONE VERY HOT YEAR
+summary(lm(absM.all$JJTave~absM.all$Year))
 
 #==================================
 #Result 3.	Shift in phenology as a function of temperature (Jun, July average; test others)
@@ -259,17 +385,21 @@ abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
 mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
 
 #normalize
-abs2<-scale(abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")], center=TRUE, scale=FALSE)
-abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave")]=abs2
+abs2<-scale(abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave","JJTave.p")], center=TRUE, scale=FALSE)
+abs.sub2= abs.sub1
+abs.sub2[,c("PupalTave","ParentTave","J","Year","JJTave","JJTave.p")]=abs2
 
-absM<- na.omit(abs.sub1[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year","JJTave")])
+absM<- na.omit(abs.sub2[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year","JJTave","JJTave.p")])
 
 #----------
 #phenology ##*
-fig2a=ggplot(data=abs.sub, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig2a=ggplot(data=abs.sub1, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  geom_smooth(method="lm") 
+#prism
+fig2a.p=ggplot(data=abs.sub1, aes(x=JJTave.p, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
 
-fig2b=ggplot(data=abs.sub, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") 
 
 #Results in annual pattern
@@ -304,6 +434,9 @@ print(figs1b,vp=vplayout(2,1))
 figs2a<-ggplot(data=absM.all, aes(x=Year, y = doy, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 fig3a<- ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+#prism
+fig3a<- ggplot(data=absM.all, aes(x=JJTave.p, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 
 #Abs
