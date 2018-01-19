@@ -1,6 +1,7 @@
 ### ANALYSIS OF COLIAS MUSEUM SPECIMENS
 
-mydir= "C:\\Users\\lbuckley\\Documents\\MuseumTraits\\"
+mydir= "C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\MuseumTraits\\"
+#mydir= "C:\\Users\\lbuckley\\Documents\\MuseumTraits\\"
 #mydir= "C:\\Users\\Buckley\\Google Drive\\ColiasEvolution\\HistoricalAnalysis\\"
 
 #install packages
@@ -210,92 +211,25 @@ absM$JJTave= clim.jj$TMEAN[match1]
 absM.all= absM
 
 #-------
-#Try prism data
+#ADD prism data
 #http://ropensci.github.io/prism/
 #https://rpubs.com/collnell/get_prism
 
-library(raster)
+#recent
+setwd(paste(mydir, "data\\PRISMClimate\\", sep=""))
 
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\PRISM_tmean_stable_4kmM2_198101_201705_bil\\")
+p.rec.june= read.csv("june_recent_tmean.csv", header=TRUE, row.names=1) 
+p.rec.july= read.csv("july_recent_tmean.csv", header=TRUE, row.names=1)
 
-#sort by year
-absM= absM.all[sort(absM.all$Year),]
-#years
-years= unique(absM.all$Year)
-years.rec= years[ which(years %in% 1981:2017) ]
-
-p.dat= array(data=NA, dim=c(length(years.rec), 2, nrow(absM.all) ))
-
-#extract data for each specimen (speed up by restricting to unique specimen)
-pts<-SpatialPointsDataFrame(coords=absM.all[,c('lon','lat')], 
-                            data=absM.all, proj4string = CRS("+proj=longlat +ellps=WGS84 +no_defs"))
-
-#look at overall temporal temperature trend by examining all locations
-
-for(k in 1:length(years.rec) ){
-
-#JUNE
-f.june= paste("PRISM_tmean_stable_4kmM2_",years.rec[k],"06_bil.bil",sep="")
-p<- raster(f.june)
-##crop
-#ext= extent(t(matrix(c( -127,-98,30,61), nrow=2)))
-#p.crop=crop(p, ext)
-
-p.dat[k,1,]<-extract(p, pts, na.rm=FALSE)
-
-#JULY
-f.july= paste("PRISM_tmean_stable_4kmM2_",years.rec[k],"07_bil.bil",sep="")
-p<- raster(f.july)
-
-p.dat[k,2,]<-extract(p, pts, na.rm=FALSE)
-
-}
-
-p.rec.june= cbind(years.rec, p.dat[,1,])
-p.rec.july= cbind(years.rec, p.dat[,2,])
-
-#write out
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\")
-write.csv(cbind(years.rec,p.dat[,1,]), "june_recent_tmean.csv" )
-write.csv(cbind(years.rec,p.dat[,2,]), "july_recent_tmean.csv" )
-
-#------
 #Historic data 
+p.hist.june= read.csv("june_historic_tmean.csv", header=TRUE, row.names=1) 
+p.hist.july= read.csv("july_historic_tmean.csv", header=TRUE, row.names=1)
 
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\PRISM_1895_1980\\")
-
-years.hist= years[ which(years %in% 1895:1980) ]
-
-p.dat= array(data=NA, dim=c(length(years.hist), 2, nrow(absM.all) ))
-
-#look at overall temporal temperature trend by examining all locations
-
-for(k in 1:length(years.hist) ){
-  
-  #JUNE
-  f.june= paste("PRISM_tmean_stable_4kmM2_",years.hist[k],"06_bil.bil",sep="")
-  p<- raster(f.june)
-  ##crop
-  #ext= extent(t(matrix(c( -127,-98,30,61), nrow=2)))
-  #p.crop=crop(p, ext)
-  
-  p.dat[k,1,]<-extract(p, pts, na.rm=FALSE)
-  
-  #JULY
-  f.july= paste("PRISM_tmean_stable_4kmM2_",years.hist[k],"07_bil.bil",sep="")
-  p<- raster(f.july)
-  
-  p.dat[k,2,]<-extract(p, pts, na.rm=FALSE)
-  
-}
-
-p.hist.june= cbind(years.hist, p.dat[,1,])
-p.hist.july= cbind(years.hist, p.dat[,2,])
-
-#write out
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\MuseumTraits\\")
-write.csv(cbind(years.hist,p.dat[,1,]), "june_historic_tmean.csv" )
-write.csv(cbind(years.hist,p.dat[,2,]), "july_historic_tmean.csv" )
+#make names match
+colnames(p.rec.june)[1]="years"
+colnames(p.rec.july)[1]="years"
+colnames(p.hist.june)[1]="years"
+colnames(p.hist.july)[1]="years"
 
 #-----------------
 #Plot temperature trend
@@ -341,6 +275,34 @@ absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 #http://climatetrends.colostate.edu
 
 #clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
+
+#---------
+#Add Alberta Data
+#https://sites.ualberta.ca/~ahamann/data.html
+
+#read in
+setwd(paste(mydir, "data\\", sep=""))
+a.clim= read.csv("AlbertaClimate.csv" )
+
+match1= match(a.clim$ID1, absM.all$ID)
+
+absM.all$Tjune.prism
+
+alb.ind= which(absM.all$"State"=="Alberta")
+
+#match data
+for(k in 1:length(alb.ind) ){
+  june.name=paste("june_", absM.all$Year[alb.ind[k]], sep="")
+  july.name=paste("june_", absM.all$Year[alb.ind[k]], sep="")
+  
+  absM.all$Tjune.prism[alb.ind[k]]= a.clim[match1[k],june.name]
+  absM.all$Tjuly.prism[alb.ind[k]]= a.clim[match1[k],july.name]
+}
+
+#ave of june and july
+absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
+
+### FIX
 
 #=======================
 # Result 1. Maps and overview plots
