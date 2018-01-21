@@ -335,6 +335,18 @@ for(k in 1:nrow(absM.all) ){
 #ave of june and july
 absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 
+#write out data including PRISM data
+write.csv(absM.all, "MuseumData_wPRISM.csv")
+
+#--------------------
+#Alberta data
+#https://sites.ualberta.ca/~ahamann/data/climateab.html
+
+alb.dat= subset(absM.all, absM.all$State=="Alberta")
+write.csv(alb.dat[,c("ID","Location", "Lat","Long","estElevation")], "AlbertaSites.csv")
+
+sort(unique(alb.dat$Year))
+
 #-------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
