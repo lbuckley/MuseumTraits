@@ -273,20 +273,12 @@ absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 write.csv(absM.all, "MuseumData_wPRISM.csv")
 
 #--------------------
-#Alberta data
-#https://sites.ualberta.ca/~ahamann/data/climateab.html
-
-alb.dat= subset(absM.all, absM.all$State=="Alberta")
-write.csv(alb.dat[,c("ID","Location", "Lat","Long","estElevation")], "AlbertaSites.csv")
-
-sort(unique(alb.dat$Year))
-
-#-------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
 #http://climatetrends.colostate.edu
-
 #clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
+
+#Climax almost as close and more similar elevation
 
 #---------
 #Add Alberta Data
@@ -297,10 +289,6 @@ setwd(paste(mydir, "data\\", sep=""))
 a.clim= read.csv("AlbertaClimate.csv" )
 
 match1= match(a.clim$ID1, absM.all$ID)
-
-absM.all$Tjune.prism
-
-alb.ind= which(absM.all$"State"=="Alberta")
 
 #match data
 for(k in 1:length(alb.ind) ){
@@ -313,8 +301,6 @@ for(k in 1:length(alb.ind) ){
 
 #ave of june and july
 absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
-
-### FIX
 
 #=======================
 # Result 1. Maps and overview plots
@@ -418,6 +404,9 @@ fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(
   facet_wrap(~region)+geom_smooth(method="lm")
 #by year
 figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+#prism
+figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave.p ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 
 #---------
