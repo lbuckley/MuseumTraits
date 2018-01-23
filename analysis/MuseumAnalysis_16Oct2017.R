@@ -326,6 +326,23 @@ aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartes
 ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
   geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
 
+#COMBINE
+##open pdf
+#subvp<-viewport(width=.4,height=.4,x=.75,y=.35)
+##Next, open the main graph which was stored in b by typing b at the prompt:
+#b  
+##Then, superimpose the graph stored in a on the viewport as:
+#print(a,vp=subvp)
+# graphics.off()
+
+#OR?
+# grid.newpage()
+# pushViewport(viewport(layout=grid.layout(2,1)))
+# vplayout<-function(x,y)
+#   viewport(layout.pos.row=x,layout.pos.col=y)
+# print(figs2a,vp=vplayout(1,1))
+# print(figs2b,vp=vplayout(2,1))
+
 #==================================
 #Result 2.	Temp change over time
 
