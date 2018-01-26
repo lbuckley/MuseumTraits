@@ -317,31 +317,30 @@ map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE)
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian()
+aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian() +
+  labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
-ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_bw()+
+  labs(x = "Latitude (°)",y="Elevation (m)")
+  # , color=doy #geom_smooth(method="lm")+
 
 #COMBINE
-##open pdf
-#subvp<-viewport(width=.4,height=.4,x=.75,y=.35)
-##Next, open the main graph which was stored in b by typing b at the prompt:
-#b  
-##Then, superimpose the graph stored in a on the viewport as:
-#print(a,vp=subvp)
-# graphics.off()
+library(grid)
 
-#OR?
-# grid.newpage()
-# pushViewport(viewport(layout=grid.layout(2,1)))
-# vplayout<-function(x,y)
-#   viewport(layout.pos.row=x,layout.pos.col=y)
-# print(figs2a,vp=vplayout(1,1))
-# print(figs2b,vp=vplayout(2,1))
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\")
+pdf("ElevFig.pdf", height=8, width=8)
+
+##open pdf
+subvp<-viewport(width=.47,height=.40,x=.29,y=0.34)
+##Next, open the main graph which was stored in b by typing b at the prompt:
+aper1.map
+##Then, superimpose the graph stored in a on the viewport as:
+print(elev.plot,vp=subvp)
+dev.off()
 
 #==================================
 #Result 2.	Temp change over time
