@@ -274,12 +274,16 @@ for(k in 1:nrow(absM.all) ){
 #ave of june and july
 absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 
-#-------
+#write out data including PRISM data
+write.csv(absM.all, "MuseumData_wPRISM.csv")
+
+#--------------------
 #For loveland pass
 #Cabin creek 051186, http://climate.colostate.edu/data_access.html
 #http://climatetrends.colostate.edu
-
 #clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
+
+#Climax almost as close and more similar elevation
 
 #---------
 #Add Alberta Data
@@ -290,10 +294,6 @@ setwd(paste(mydir, "data\\", sep=""))
 a.clim= read.csv("AlbertaClimate.csv" )
 
 match1= match(a.clim$ID1, absM.all$ID)
-
-absM.all$Tjune.prism
-
-alb.ind= which(absM.all$"State"=="Alberta")
 
 #match data
 for(k in 1:length(alb.ind) ){
@@ -306,8 +306,6 @@ for(k in 1:length(alb.ind) ){
 
 #ave of june and july
 absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
-
-### FIX
 
 #=======================
 # Result 1. Maps and overview plots
@@ -324,14 +322,30 @@ map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE)
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian()
+aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian() +
+  labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
-ggplot(data=absM, aes(x=lat, y = estElevation, color=doy ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") #+ guides(color=FALSE)+labs(x = "",y="")
+elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_bw()+
+  labs(x = "Latitude (°)",y="Elevation (m)")
+  # , color=doy #geom_smooth(method="lm")+
+
+#COMBINE
+library(grid)
+
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\")
+pdf("ElevFig.pdf", height=8, width=8)
+
+##open pdf
+subvp<-viewport(width=.47,height=.40,x=.29,y=0.34)
+##Next, open the main graph which was stored in b by typing b at the prompt:
+aper1.map
+##Then, superimpose the graph stored in a on the viewport as:
+print(elev.plot,vp=subvp)
+dev.off()
 
 #==================================
 #Result 2.	Temp change over time
@@ -411,6 +425,9 @@ fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(
   facet_wrap(~region)+geom_smooth(method="lm")
 #by year
 figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
+  facet_wrap(~region)+geom_smooth(method="lm")
+#prism
+figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave.p ))+geom_point(alpha=0.8) +theme_bw()+
   facet_wrap(~region)+geom_smooth(method="lm")
 
 #---------
