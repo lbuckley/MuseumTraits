@@ -241,17 +241,22 @@ p.july= rbind(p.hist.july, p.rec.july)
 p.june.ave= rowMeans(p.june[,2:983], na.rm=TRUE)
 p.july.ave= rowMeans(p.july[,2:983], na.rm=TRUE)
 
+#ave of june and july
+p.jj.ave= rowMeans(cbind(p.june.ave,p.july.ave))
+
 p.june.ave= cbind(p.june[,1], p.june.ave, rep("june",73))
 p.july.ave= cbind(p.june[,1], p.july.ave, rep("july",73))
+p.jj.ave=  cbind(p.june[,1], p.jj.ave, rep("jj",73))
 
 #plot
-p.clim= rbind(p.june.ave, p.july.ave )
+p.clim=p.jj.ave
+#p.clim= rbind(p.june.ave, p.july.ave )
 p.clim= as.data.frame(p.clim)
 colnames(p.clim)=c("year","temp","month" )
 p.clim$year= as.numeric(as.character(p.clim$year))
 p.clim$temp= as.numeric(as.character(p.clim$temp))
 
-ggplot(data=p.clim, aes(x=year, y = temp, color=month))+geom_line() +theme_classic()
+clim.plot= ggplot(data=p.clim, aes(x=year, y = temp))+geom_point() +theme_classic()+geom_smooth()+xlim(1950,2013)+ylab("June and July Temperature (°C)") +xlab("Year")
 
 #----------
 #Add PRISM data
