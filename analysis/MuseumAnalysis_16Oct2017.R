@@ -39,6 +39,9 @@ library(mapdata)
 setwd(paste(mydir, "data\\", sep=""))
 abs=read.csv("FullDataColiasMuseums.csv")
 
+#make longitude numeric
+abs$Long= as.numeric(as.character(abs$Long))
+
 abs$lon= abs$Long
 abs$lat= abs$Lat
 
@@ -256,8 +259,6 @@ colnames(p.clim)=c("year","temp","month" )
 p.clim$year= as.numeric(as.character(p.clim$year))
 p.clim$temp= as.numeric(as.character(p.clim$temp))
 
-clim.plot= ggplot(data=p.clim, aes(x=year, y = temp))+geom_point() +theme_classic()+geom_smooth()+xlim(1950,2013)+ylab("June and July Temperature (°C)") +xlab("Year")
-
 #----------
 #Add PRISM data
 match.years= match(absM.all$Year, p.june[,1])
@@ -295,6 +296,8 @@ a.clim= read.csv("AlbertaClimate.csv" )
 
 match1= match(a.clim$ID1, absM.all$ID)
 
+alb.ind= which(absM.all$"State"=="Alberta")
+
 #match data
 for(k in 1:length(alb.ind) ){
   june.name=paste("june_", absM.all$Year[alb.ind[k]], sep="")
@@ -311,50 +314,54 @@ absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
 # Result 1. Maps and overview plots
 #MAKE INITIAL MAPS
 
+absM.all$Long= as.numeric(as.character(absM.all$Long))
+
 #set up map
-bbox <- ggmap::make_bbox(lon, lat, absM, f = 0.1)
+bbox <- ggmap::make_bbox(Long, Lat, absM.all, f = 0.1)
 bbox[1]= bbox[1] -5
 bbox[2]= bbox[2] -5
 bbox[3]= bbox[3] +5
 bbox[4]= bbox[4] +5
 
 map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
-map1=ggmap(map_loc, margins=FALSE)
+map1=ggmap(map_loc, margins=FALSE) #
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM, aes(color=estElevation) ) + coord_cartesian() +
-  labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")
+absM$Long= as.numeric(as.character(absM$Long))
+
+aper1.map<- map1 +geom_point(data=absM, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
-elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_bw()+
+elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_classic()+
   labs(x = "Latitude (°)",y="Elevation (m)")
   # , color=doy #geom_smooth(method="lm")+
+
+#-------------------
+#Inset:	Temp change over time
+
+#PLOT TEMP TREND PRISM DATA ACROSS ALL SITES IN ALL YEARS WITH SAMPLES
+clim.plot= ggplot(data=p.clim, aes(x=year, y = temp))+geom_point() +theme_classic()+geom_smooth()+xlim(1950,2013)+ylab("June and July Temperature (°C)") +xlab("Year")
+
+#-------------------
 
 #COMBINE
 library(grid)
 
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\")
+setwd(paste(mydir, "figures\\", sep=""))
 pdf("ElevFig.pdf", height=8, width=8)
 
 ##open pdf
-subvp<-viewport(width=.47,height=.40,x=.29,y=0.34)
+subvp.t<-viewport(width=.38,height=.38,x=.7,y=0.8)
+subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.34)
 ##Next, open the main graph which was stored in b by typing b at the prompt:
 aper1.map
 ##Then, superimpose the graph stored in a on the viewport as:
-print(elev.plot,vp=subvp)
+print(elev.plot,vp=subvp.e)
+print(clim.plot,vp=subvp.t)
 dev.off()
-
-#==================================
-#Result 2.	Temp change over time
-
-#PLOT TEMP TREND
-ggplot(data=absM.all, aes(x=Year, y = JJTave))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm")+xlim(1950,2012)
-  
-summary(lm(absM.all$JJTave~absM.all$Year))
 
 #==================================
 #Result 3.	Shift in phenology as a function of temperature (Jun, July average; test others)
@@ -373,80 +380,64 @@ abs.sub2[,c("PupalTave","ParentTave","J","Year","JJTave","JJTave.p")]=abs2
 absM<- na.omit(abs.sub2[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year","JJTave","JJTave.p")])
 
 #----------
-#phenology ##*
-fig2a=ggplot(data=abs.sub1, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") 
-#prism
-fig2a.p=ggplot(data=abs.sub1, aes(x=JJTave.p, y = J, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") 
+#phenology 
+fig2a=ggplot(data=abs.sub1, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("June and July Temperature (°C)") +ylab("Phenology (doy)") +geom_smooth(method="lm")+ theme(legend.position="bottom")+ theme(legend.position="none") 
 
-fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") 
+#plasticity
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic()+  geom_smooth(method="lm") + theme(legend.position="bottom") + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")
 
 #Results in annual pattern
-figs1a=ggplot(data=abs.sub, aes(x=Year, y = doy, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") 
-
-figs1b=ggplot(data=abs.sub, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
-  geom_smooth(method="lm") 
+fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+  geom_smooth(method="lm") + theme(legend.position="bottom") + xlab("Year") +ylab("Wing melanism (grey level)")
 
 #FIG 2
 library(grid)
+
+setwd(paste(mydir, "figures\\", sep=""))
+pdf("Fig2_Loveland.pdf", height=8, width=4)
+
 grid.newpage()
-pushViewport(viewport(layout=grid.layout(2,1)))
+pushViewport(viewport(layout=grid.layout(3,1)))
 vplayout<-function(x,y)
   viewport(layout.pos.row=x,layout.pos.col=y)
 print(fig2a,vp=vplayout(1,1))
 print(fig2b,vp=vplayout(2,1))
-#print(fig2c,vp=vplayout(3,1))
+print(fig2c,vp=vplayout(3,1))
 
-#FIG S1
-grid.newpage()
-pushViewport(viewport(layout=grid.layout(2,1)))
-vplayout<-function(x,y)
-  viewport(layout.pos.row=x,layout.pos.col=y)
-print(figs1a,vp=vplayout(1,1))
-print(figs1b,vp=vplayout(2,1))
+dev.off()
 
 #------------
 #REGIONS
 
-#Phenology
-figs2a<-ggplot(data=absM.all, aes(x=Year, y = doy, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-fig3a<- ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-#prism
-fig3a<- ggplot(data=absM.all, aes(x=JJTave.p, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
+#make region label
+absM.all$region.lab<-"Region 1"
+absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
+absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
+
+#Phenology 
+fig3a<- ggplot(data=absM.all, aes(x=JJTave.p, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+
+  xlab("June and July Temperature (°C)") +ylab("Phenology (doy)")+ theme(legend.position="none") 
+##! PRISM data reverses trend. CHECK
 
 #Abs
-fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+ xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+ theme(legend.position="bottom")
+
 #by year
-figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
-#prism
-figs2b<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=JJTave.p ))+geom_point(alpha=0.8) +theme_bw()+
-  facet_wrap(~region)+geom_smooth(method="lm")
+fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+facet_wrap(~region.lab)+geom_smooth(method="lm")+ xlab("Year") +ylab("Wing melanism (grey level)")
 
 #---------
 #Fig 3
-grid.newpage()
-pushViewport(viewport(layout=grid.layout(2,1)))
+setwd(paste(mydir, "figures\\", sep=""))
+pdf("Fig3_Regions.pdf", height=8, width=8)
+
+#grid.newpage()
+pushViewport(viewport(layout=grid.layout(3,1)))
 vplayout<-function(x,y)
   viewport(layout.pos.row=x,layout.pos.col=y)
 print(fig3a,vp=vplayout(1,1))
 print(fig3b,vp=vplayout(2,1))
-#print(fig3c,vp=vplayout(3,1))
-
-#Fig S2
-grid.newpage()
-pushViewport(viewport(layout=grid.layout(2,1)))
-vplayout<-function(x,y)
-  viewport(layout.pos.row=x,layout.pos.col=y)
-print(figs2a,vp=vplayout(1,1))
-print(figs2b,vp=vplayout(2,1))
+print(fig3c,vp=vplayout(3,1))
+dev.off()
 
 #-------------
 #OTHER SUBSETS EXPLORED
