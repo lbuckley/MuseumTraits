@@ -27,11 +27,6 @@ library(ggmap)
 library(maps)
 library(mapdata)
 
-#daymetR, http://khufkens.github.io/daymetr/
-#if(!require(devtools)){install.package(devtools)}
-#devtools::install_github("khufkens/daymetr")
-#library(daymetr)
-
 #---------------------------
 #READ AND MANIPULATE DATA
 
@@ -107,232 +102,55 @@ abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 #Region 2: MORAN 5WNW, WY USA, 	USC00486440, http://mco.cfc.umt.edu/ghcn/station/USC00486440.html
 #Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
 
-#Region 1
+#Load
 setwd(paste(mydir, "data\\", sep=""))
-climax=read.csv("ClimaxCOOP_F.csv")
-#F to C
-climax$TMAX= (climax$TMAX-32)*5/9
-climax$TMIN= (climax$TMIN-32)*5/9
-climax$TMEAN= (climax$TMAX + climax$TMIN)/2
-
-#Region 2
-setwd(paste(mydir, "data\\", sep=""))
-moran=read.csv("Moran5WNWCOOP_F.csv")
-#F to C
-moran$TMAX= (moran$TMAX-32)*5/9
-moran$TMIN= (moran$TMIN-32)*5/9
-moran$TMEAN= (moran$TMAX + moran$TMIN)/2
-
-#Regon 3
-setwd(paste(mydir, "data\\BlueHillLO\\", sep=""))
-bluehill=read.csv("bluehillLO_19622011.csv")
-#many NAs after 2007
-locs= aggregate(absM, list(absM$NewLocation, absM$Year), FUN="count")
-
-#CLIMAX
-#ESTIMATE CLIMATE FOR ADULT, PUPAL, COMBINED 
-setwd(paste(mydir, "data\\", sep=""))
-
-clim= read.csv("ClimaxCOOP_5.4.15.csv", na.strings = "-9999")  
-
-clim[,4:6]= clim[,4:6]/10   #convert to C
-clim$Year= substr(clim$DATE,1,4)
+clim= read.csv("WeatherStationData_Regions.csv")
 
 #calculate Julian
-tmp <- as.POSIXlt(as.character(clim$DATE), format = "%Y%m%d")
+clim$DATE= paste(clim$YEAR,"/", clim$MONTH, "/", clim$DAY,sep="")
+tmp <- as.POSIXlt(as.character(clim$DATE), format = "%Y/%m/%d")
 clim$J=tmp$yday
-clim$JY= paste(clim$J, clim$Year, sep="")
+clim$JYR= paste(clim$J, clim$YEAR,clim$region, sep="")
+clim$MYR= paste(clim$MONTH, clim$YEAR,as.character(clim$region), sep="")
 
-#cut NAs 
-#absM= na.omit(absM)
-
+#---------------- 
 #match to temp
-absM$AdultTmax=NA
-absM$AdultTave=NA
-absM$ParentTmax=NA
-absM$ParentTave=NA
-absM$PupalTmax=NA
-absM$PupalTave=NA
-absM$LifeTmax=NA
-absM$LifeTave=NA
+absM$June=NA
+absM$July=NA
+absM$June15July15=NA
+absM$doy162to202=NA
 
 absM$J=absM$doy
 
 for(i in 1:nrow(absM)){ #Lazily coding as a loop
-  adult= paste( (absM$J[i]-5):(absM$J[i]+5), absM$Year[i], sep="")      # expanded to 11 day window
-  # par.range= (absM$J[i]-10):(absM$J[i]+10)                             #@ Tried models with all permutations +-20, +- 10 , and using below percentile. 
-  ## TRY FIXING PARENTAL RANGE
-  par.range= 201:216  ## 25th and 75th percentile 
-  ## OPTIONAL CODE TO CONSTRAIN PARENTAL RANGE  
-  # x= length(which(par.range<171))
-  #  if(x>0) par.range= (min(par.range)+x):(max(par.range)+x)
-  #  x= length(which(par.range>225))
-  # if(x>0) par.range= (min(par.range)-x):(max(par.range)-x)
   
-  parent= paste( par.range, absM$Year[i]-1, sep="")  #YEAR BEFORE 
-  pupal= paste( (absM$J[i]-26):(absM$J[i]-6), absM$Year[i], sep="")      
+  #June
+  dev= paste( 6, absM$Year[i],absM$region[i], sep="")     
+  cdat= clim[match(dev, clim$MYR),"TMEAN"]
+  absM$June[i]=mean(cdat, na.rm=TRUE)
   
-  adult.TMAX= clim[match(adult, clim$JY),"TMAX"]
-  adult.TMIN= clim[match(adult, clim$JY),"TMIN"]
-  parent.TMAX= clim[match(parent, clim$JY),"TMAX"]
-  parent.TMIN= clim[match(parent, clim$JY),"TMIN"]
-  pupal.TMAX= clim[match(pupal, clim$JY),"TMAX"]
-  pupal.TMIN= clim[match(pupal, clim$JY),"TMIN"]
+  #July
+  dev= paste( 7, absM$Year[i],absM$region[i], sep="")     
+  cdat= clim[match(dev, clim$MYR),"TMEAN"]
+  absM$July[i]=mean(cdat, na.rm=TRUE)
   
-  absM$AdultTmax[i]=mean(adult.TMAX, na.rm=TRUE)
-  absM$AdultTave[i]=mean(c(adult.TMAX, adult.TMIN), na.rm=TRUE)
-  absM$ParentTmax[i]=mean(parent.TMAX, na.rm=TRUE)
-  absM$ParentTave[i]=mean(c(parent.TMAX, adult.TMIN), na.rm=TRUE)
-  absM$PupalTmax[i]=mean(pupal.TMAX, na.rm=TRUE)
-  absM$PupalTave[i]=mean(c(pupal.TMAX, pupal.TMIN), na.rm=TRUE)
-  absM$LifeTmax[i]=mean(c(pupal.TMAX,adult.TMAX), na.rm=TRUE)
-  absM$LifeTave[i]=mean(c(pupal.TMAX,adult.TMAX,pupal.TMIN,adult.TMIN), na.rm=TRUE)
+  #June15 to July 15
+  dev= paste( 152:181, absM$Year[i],absM$region[i], sep="")     
+  cdat= clim[match(dev, clim$JYR),"TMEAN"]
+  absM$June15July15[i]=mean(cdat, na.rm=TRUE)
+  
+  #doy160to202
+  dev= paste( 162:202, absM$Year[i],absM$region[i], sep="")     
+  cdat= clim[match(dev, clim$JYR),"TMEAN"]
+  absM$doy162to202[i]=mean(cdat, na.rm=TRUE)
+  
 } #end loop rows
 
-#cut NAs 
-#absM= na.omit(absM)
-
-#Add seasonal climate
-#J= 152 to 212, June and July
-clim.jj= clim[which(clim$J>151 & clim$J<213),]
-clim.jj$TMEAN= (clim.jj$TMAX + clim.jj$TMIN)/2
-
-#counts
-clim.counts= aggregate(clim.jj, list(clim.jj$Year), FUN="count")
-clim.years= clim.counts[which(clim.counts$STATION>50) ,"Group.1"]
-clim.years= as.numeric(as.character(clim.years))
-#require 50 days of data #FIx 1980?
-clim.jj= clim.jj[which(clim.jj$Year %in% clim.years),]
-
-clim.jj= aggregate(clim.jj, list(clim.jj$Year), FUN="mean", na.rm=TRUE)
-clim.jj$Year= clim.jj$Group.1
-clim.jj$Year= as.numeric(as.character(clim.jj$Year))
-
-match1= match(absM$Year, clim.jj$Year)
-absM$JJTave= clim.jj$TMEAN[match1] 
+#JuneJuly
+absM$JJTave= (absM$June + absM$July) / 2
 
 #save
 absM.all= absM
-
-#-------
-#ADD prism data
-#http://ropensci.github.io/prism/
-#https://rpubs.com/collnell/get_prism
-
-#recent
-setwd(paste(mydir, "data\\PRISMClimate\\", sep=""))
-
-p.rec.june= read.csv("june_recent_tmean.csv", header=TRUE, row.names=1) 
-p.rec.july= read.csv("july_recent_tmean.csv", header=TRUE, row.names=1)
-
-#Historic data 
-p.hist.june= read.csv("june_historic_tmean.csv", header=TRUE, row.names=1) 
-p.hist.july= read.csv("july_historic_tmean.csv", header=TRUE, row.names=1)
-
-#make names match
-colnames(p.rec.june)[1]="years"
-colnames(p.rec.july)[1]="years"
-colnames(p.hist.june)[1]="years"
-colnames(p.hist.july)[1]="years"
-
-#-----------------
-#Plot temperature trend
-
-#combine
-p.june= rbind(p.hist.june, p.rec.june)
-p.july= rbind(p.hist.july, p.rec.july)
-
-p.june.ave= rowMeans(p.june[,2:983], na.rm=TRUE)
-p.july.ave= rowMeans(p.july[,2:983], na.rm=TRUE)
-
-#ave of june and july
-p.jj.ave= rowMeans(cbind(p.june.ave,p.july.ave))
-
-p.june.ave= cbind(p.june[,1], p.june.ave, rep("june",73))
-p.july.ave= cbind(p.june[,1], p.july.ave, rep("july",73))
-p.jj.ave=  cbind(p.june[,1], p.jj.ave, rep("jj",73))
-
-#plot
-p.clim=p.jj.ave
-#p.clim= rbind(p.june.ave, p.july.ave )
-p.clim= as.data.frame(p.clim)
-colnames(p.clim)=c("year","temp","month" )
-p.clim$year= as.numeric(as.character(p.clim$year))
-p.clim$temp= as.numeric(as.character(p.clim$temp))
-
-#----------
-#Add PRISM data
-match.years= match(absM.all$Year, p.june[,1])
-
-absM.all$Tjune.prism= NA
-absM.all$Tjuly.prism= NA
-
-#match data
-for(k in 1:nrow(absM.all) ){
-  absM.all$Tjune.prism[k]= p.june[match.years[k],k+1]
-  absM.all$Tjuly.prism[k]= p.july[match.years[k],k+1]
-}
-
-#ave of june and july
-absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
-
-#write out data including PRISM data
-write.csv(absM.all, "MuseumData_wPRISM.csv")
-
-#--------------------
-#For loveland pass
-#Cabin creek 051186, http://climate.colostate.edu/data_access.html
-#http://climatetrends.colostate.edu
-#clim= read.csv("CabinCreek.csv", na.strings = "-9999")  #F and IN
-
-#Climax almost as close and more similar elevation
-
-#---------
-#Add Alberta Data
-#https://sites.ualberta.ca/~ahamann/data.html
-
-#read in
-setwd(paste(mydir, "data\\", sep=""))
-a.clim= read.csv("AlbertaClimate.csv" )
-
-match1= match(a.clim$ID1, absM.all$ID)
-
-alb.ind= which(absM.all$"State"=="Alberta")
-
-#match data
-for(k in 1:length(alb.ind) ){
-  june.name=paste("june_", absM.all$Year[alb.ind[k]], sep="")
-  july.name=paste("june_", absM.all$Year[alb.ind[k]], sep="")
-  
-  absM.all$Tjune.prism[alb.ind[k]]= a.clim[match1[k],june.name]
-  absM.all$Tjuly.prism[alb.ind[k]]= a.clim[match1[k],july.name]
-}
-
-#ave of june and july
-absM.all$JJTave.p= rowMeans(absM.all[,c("Tjune.prism", "Tjuly.prism")])
-
-#=========================
-#Use weather station data
-
-#Region 1: Climax
-#Region 2: MORAN 5WNW, WY USA, 	USC00486440, http://mco.cfc.umt.edu/ghcn/station/USC00486440.html
-#Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
-
-abs.co=subset(absM.all, absM.all$region==1)
-summary(abs.co)
-
-
-ggplot(data=abs.co, aes(x=JJTave, y = JJTave.p))+geom_point()+geom_smooth(method="lm")+theme_classic()
-
-
-#Region 2
-setwd(paste(mydir, "data\\", sep=""))
-moran=read.csv("Moran5WNWCOOP_F.csv")
-
-#Regon 3
-setwd(paste(mydir, "data\\BlueHillLO\\", sep=""))
-bluehill=read.csv("bluehillLO_19622011.csv")
-#many NAs after 2007
 
 #=======================
 # Result 1. Maps and overview plots
@@ -366,8 +184,39 @@ elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8)
 #-------------------
 #Inset:	Temp change over time
 
-#PLOT TEMP TREND PRISM DATA ACROSS ALL SITES IN ALL YEARS WITH SAMPLES
-clim.plot= ggplot(data=p.clim, aes(x=year, y = temp))+geom_point() +theme_classic()+geom_smooth()+xlim(1950,2013)+ylab("June and July Temperature (°C)") +xlab("Year")
+#make region factor labels
+clim$region.f= "1: Southern"
+clim$region.f[which(clim$region==2)]<- "2: Northern"
+clim$region.f[which(clim$region==3)]<- "3: Canadian"
+clim$region= as.numeric(clim$region)
+
+#calculate developmental temperatures each year
+clim.dev= subset(clim, clim$J %in% 162:202)
+#aggregate by year and region
+clim.dev= aggregate(clim.dev, list(clim.dev$region.f, clim.dev$YEAR), FUN="mean", na.rm=TRUE)
+clim.dev$region.f=clim.dev$Group.1
+
+#time series for three regions
+clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line() +theme_classic()+geom_smooth(method="lm",se=FALSE)+xlim(1950,2013)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
+
+#find years with samples
+clim$region= as.factor(clim$region)
+a.sub= subset(absM.all, absM.all$region==1)
+yrs.reg= unique(a.sub$Year)
+clim.dev1= subset(clim.dev, clim.dev$region==1 & clim.dev$YEAR %in% yrs.reg)
+
+a.sub= subset(absM.all, absM.all$region==2)
+yrs.reg= unique(a.sub$Year)
+clim.dev2= subset(clim.dev, clim.dev$region==2 & clim.dev$YEAR %in% yrs.reg)
+
+a.sub= subset(absM.all, absM.all$region==3)
+yrs.reg= unique(a.sub$Year)
+clim.dev3= subset(clim.dev, clim.dev$region==3 & clim.dev$YEAR %in% yrs.reg)
+
+clim.devs= rbind(clim.dev1, clim.dev2, clim.dev3)
+
+#add dots for years with samples
+clim.plot= clim.plot+ geom_point(data=clim.devs, aes(x=YEAR, y = TMEAN, color=region.f))
 
 #-------------------
 
@@ -378,7 +227,7 @@ setwd(paste(mydir, "figures\\", sep=""))
 pdf("ElevFig.pdf", height=8, width=8)
 
 ##open pdf
-subvp.t<-viewport(width=.38,height=.38,x=.7,y=0.8)
+subvp.t<-viewport(width=.5,height=.38,x=.7,y=0.8)
 subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.34)
 ##Next, open the main graph which was stored in b by typing b at the prompt:
 aper1.map
@@ -394,19 +243,10 @@ dev.off()
 #LOVELAND PASS
 #"EisenhowerTunnel"/ Loveland pass ANALYSIS
 abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
-mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
 
-#normalize
-abs2<-scale(abs.sub1[,c("PupalTave","ParentTave","J","Year","JJTave","JJTave.p")], center=TRUE, scale=FALSE)
-abs.sub2= abs.sub1
-abs.sub2[,c("PupalTave","ParentTave","J","Year","JJTave","JJTave.p")]=abs2
-
-absM<- na.omit(abs.sub2[,c("Corr.Val","ThoraxC","NewLocation","PupalTave","ParentTave","J","Year","JJTave","JJTave.p")])
-
-#----------
 #phenology 
-fig2a=ggplot(data=abs.sub1, aes(x=JJTave, y = J, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("June and July Temperature (°C)") +ylab("Phenology (doy)") +geom_smooth(method="lm")+ theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+fig2a=ggplot(data=abs.sub1, aes(x=doy162to202, y = J, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)") +geom_smooth(method="lm")+ theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
 
 #plasticity
 fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic()+  geom_smooth(method="lm") + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
@@ -439,8 +279,8 @@ absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
 absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
 
 #Phenology 
-fig3a<- ggplot(data=absM.all, aes(x=JJTave, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+
-  xlab("June and July Temperature (°C)") +ylab("Phenology (doy)")+ theme(legend.position="bottom")+ scale_color_gradientn(colours = topo.colors(5))
+fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ theme(legend.position="bottom")+ scale_color_gradientn(colours = topo.colors(5))
 ##! PRISM data reverses trend. CHECK
 #Tjune.prism
 
@@ -453,7 +293,7 @@ fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +
 #---------
 #Fig 3
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig3_Regions_climax.pdf", height=8, width=8)
+pdf("Fig3_Regions.pdf", height=8, width=8)
 
 #grid.newpage()
 pushViewport(viewport(layout=grid.layout(3,1)))
@@ -463,24 +303,6 @@ print(fig3a,vp=vplayout(1,1))
 print(fig3b,vp=vplayout(2,1))
 print(fig3c,vp=vplayout(3,1))
 dev.off()
-
-#-------------
-#OTHER SUBSETS EXPLORED
-
-#by county
-abs1.count= aggregate(absM, list(absM$County), FUN="count")
-counties= abs1.count[which(abs1.count$ID>75),"Group.1"]
-absM2= absM[which(absM$County %in% counties) ,]
-
-#ALberta 1980, n=144 
-abs.sub= abs[abs$State=="Alberta" & abs$Year==1980,]
-
-#Select sites with good coverage
-abs.sub= absM[absM$NewLocation %in% c("Plateau_Mnt","EisenhowerTunnel","Clay_Butte_Beartooth_Plateau", "Libby_Flats" ), ]
-#omit two 1920's specimens
-abs.sub= abs.sub[which(abs.sub$Year>1930), ]
-#body length to numeric
-abs.sub$BodyLength= as.numeric(as.character(abs.sub$BodyLength))
 
 #=====================
 #STATISTICS
@@ -494,6 +316,19 @@ absM$YrSite= paste(absM$Year, absM$siteID, sep="")
 
 Nruns= 50 #50 #number of bootstrapp runs                          
 Nsamp= 15 #max sample size of butterflies per site per year   
+
+#-------------------------------------
+#Figure 2 Loveland Pass
+
+abs.sub1$siteID= match(abs.sub1$NewLocation, sites)
+abs.sub1$YrSite= paste(abs.sub1$Year, abs.sub1$siteID, sep="")
+
+#Bootstrap
+mod1= boot.lm(x=abs.sub1$doy162to202, y=abs.sub1$doy, sites= abs.sub1$YrSite, Nruns,Nsamp)
+
+#---------------------------------------
+
+
 
 #normalize
 abs2<-scale(absM[,c("JJTave","doy","Year")], center=TRUE, scale=FALSE)
@@ -519,6 +354,15 @@ mod1= boot.lm(x=dat$JJTave, y=dat$doy, sites= dat$YrSite, Nruns,Nsamp)
 
 #=========================================
 
+mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
 
+#normalize
+abs2<-scale(abs.sub1[,c("J","Year","JJTave","JJTave.p")], center=TRUE, scale=FALSE)
+abs.sub2= abs.sub1
+abs.sub2[,c("J","Year","JJTave","JJTave.p")]=abs2
+
+absM<- na.omit(abs.sub2[,c("Corr.Val","ThoraxC","NewLocation","J","Year","JJTave","JJTave.p")])
+
+#----------
 
 
