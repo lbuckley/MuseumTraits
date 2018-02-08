@@ -101,31 +101,32 @@ abs1.count= aggregate(absM, list(absM$NewLocation, absM$Year), FUN="count")
 abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 
 #-------------------------
-#Subsample
-# 
-# #Assign site ID
-# sites= unique(absM$NewLocation)
-# absM$siteID= match(absM$NewLocation, sites)
-# absM$YrSite= paste(absM$Year, absM$siteID, sep="")
-# 
-# Nruns= 50 #50 #number of bootstrapp runs                          
-# Nsamp= 15 #max sample size of butterflies per site per year  
-# 
-# z <- sapply(unique(absM$YrSite), FUN= function(x){ 
-#   sample(which(absM$YrSite==x), min(Nsamp, length(which(absM$YrSite==x))), FALSE)
-# })
-# absM.boot<- absM[unlist(z),]
-# 
-# absM<- absM.boot
-#-------------------------
+#CLIMATE DATA, use weather stations
 
-#CLIMATE DATA
+#Region 1: Climax
+#Region 2: MORAN 5WNW, WY USA, 	USC00486440, http://mco.cfc.umt.edu/ghcn/station/USC00486440.html
+#Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
 
-#DaymetR, https://khufkens.github.io/daymetr/
-#R prism
-#rnoaa: R coop data  ghcnd
+#Region 1
+setwd(paste(mydir, "data\\", sep=""))
+climax=read.csv("ClimaxCOOP_F.csv")
+#F to C
+climax$TMAX= (climax$TMAX-32)*5/9
+climax$TMIN= (climax$TMIN-32)*5/9
+climax$TMEAN= (climax$TMAX + climax$TMIN)/2
 
-#Extract unique coordinates and years
+#Region 2
+setwd(paste(mydir, "data\\", sep=""))
+moran=read.csv("Moran5WNWCOOP_F.csv")
+#F to C
+moran$TMAX= (moran$TMAX-32)*5/9
+moran$TMIN= (moran$TMIN-32)*5/9
+moran$TMEAN= (moran$TMAX + moran$TMIN)/2
+
+#Regon 3
+setwd(paste(mydir, "data\\BlueHillLO\\", sep=""))
+bluehill=read.csv("bluehillLO_19622011.csv")
+#many NAs after 2007
 locs= aggregate(absM, list(absM$NewLocation, absM$Year), FUN="count")
 
 #CLIMAX
