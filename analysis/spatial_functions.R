@@ -20,7 +20,7 @@ count=function(x) length(x)
 # LM BOOTSTRAP
 
 boot.lm<- function(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp){
-  out<- matrix(NA, nrow=Nruns, ncol=5)
+  out<- matrix(NA, nrow=Nruns, ncol=6)
   
   for(r in 1:Nruns){
     
@@ -35,12 +35,15 @@ boot.lm<- function(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp){
     mod1= lm(y.boot~x.boot)
     mod1$coefficients[2]
     
-    out[r,]=c(summary(mod1)$coefficients[2,], summary(mod1)$r.squared )
+    out[r,]=c(summary(mod1)$coefficients[1,1], summary(mod1)$coefficients[2,], summary(mod1)$r.squared )
     
   }# end loop
   
   #average
-  return( colMeans(out) )
+  colnames(out)= c("Intercept","Estimate","SE","t","P","r^2")
+  out.r= colMeans(out)
+  
+  return(out.r)
 }
 
 #=================================

@@ -152,6 +152,16 @@ absM$JJTave= (absM$June + absM$July) / 2
 #save
 absM.all= absM
 
+#set up bootstrap regressions
+#BOOTSTRAP
+#Assign site ID
+sites= unique(absM.all$NewLocation)
+absM.all$siteID= match(absM.all$NewLocation, sites)
+absM$YrSite= paste(absM.all$Year, absM.all$siteID, sep="")
+
+Nruns= 50 #50 #number of bootstrapp runs                          
+Nsamp= 15 #max sample size of butterflies per site per year
+
 #=======================
 # Result 1. Maps and overview plots
 #MAKE INITIAL MAPS
@@ -244,15 +254,33 @@ dev.off()
 #"EisenhowerTunnel"/ Loveland pass ANALYSIS
 abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
 
+#-------------------------
+#Statistics
+
+abs.sub1$siteID= match(abs.sub1$NewLocation, sites)
+abs.sub1$YrSite= paste(abs.sub1$Year, abs.sub1$siteID, sep="")
+
+#Bootstrap
+phen.mod= boot.lm(x=abs.sub1$doy162to202, y=abs.sub1$J, sites= abs.sub1$YrSite, Nruns,Nsamp)
+plast.mod= boot.lm(x=abs.sub1$J, y = abs.sub1$Corr.Val, sites= abs.sub1$YrSite, Nruns,Nsamp)
+year.mod= boot.lm(x=abs.sub1$Year, y = abs.sub1$Corr.Val, sites= abs.sub1$YrSite, Nruns,Nsamp)
+  
+#------------------------
 #phenology 
 fig2a=ggplot(data=abs.sub1, aes(x=doy162to202, y = J, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)") +geom_smooth(method="lm")+ theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)") + theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+#add trend
+if(phen.mod["P"]<0.05) fig2a= fig2a + geom_abline( aes(slope=phen.mod["Estimate"],intercept=phen.mod["Intercept"]))
 
 #plasticity
-fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic()+  geom_smooth(method="lm") + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
+#add trend
+if(plast.mod["P"]<0.05) fig2b= fig2b + geom_abline( aes(slope=plast.mod["Estimate"],intercept=plast.mod["Intercept"]))
 
 #Results in annual pattern
-fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+  geom_smooth(method="lm") + theme(legend.position="bottom") + xlab("Year") +ylab("Wing melanism (grey level)")
+fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="bottom") + xlab("Year") +ylab("Wing melanism (grey level)")
+#add trend
+if(year.mod["P"]<0.05) fig2c= fig2c + geom_abline( aes(slope=year.mod["Estimate"],intercept=year.mod["Intercept"]))
 
 #FIG 2
 library(grid)
@@ -273,22 +301,78 @@ dev.off()
 #------------
 #REGIONS
 
+#Statistics by region 
+#region 1
+areg= subset(absM.all, absM.all$region==1)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+
+#Bootstrap by region
+phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+
+#region 2
+areg= subset(absM.all, absM.all$region==2)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+
+#Bootstrap by region
+phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+
+#region 3
+areg= subset(absM.all, absM.all$region==3)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+
+#Bootstrap by region
+phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+
+#add slopes and intercepts
+absM.all$phen.int= NA
+if(phen.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"phen.int"]= phen.mod1["Intercept"]
+if(phen.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"phen.int"]= phen.mod2["Intercept"]
+if(phen.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"phen.int"]= phen.mod3["Intercept"]
+
+absM.all$phen.slope= NA
+if(phen.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"phen.slope"]= phen.mod1["Estimate"]
+if(phen.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"phen.slope"]= phen.mod2["Estimate"]
+if(phen.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"phen.slope"]= phen.mod3["Estimate"]
+
+##ADD OTHER VARS
+
+#-----------
+
 #make region label
 absM.all$region.lab<-"Region 1"
 absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
 absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
 
 #Phenology 
-fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+
+fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()
+#add trendlines
+fig3a= fig3a+
+  geom_abline(aes(slope=phen.slope,intercept=phen.int))+
+ facet_wrap(~region.lab)+
   xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ theme(legend.position="bottom")+ scale_color_gradientn(colours = topo.colors(5))
-##! PRISM data reverses trend. CHECK
-#Tjune.prism
 
 #Abs
-fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")+ xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() 
+  #add trendlines
+  fig3b= fig3b+
+  geom_abline(aes(slope=plast.slope,intercept=plast.int))+
+  facet_wrap(~region.lab)+ xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
 
 #by year
-fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+facet_wrap(~region.lab)+geom_smooth(method="lm")+ xlab("Year") +ylab("Wing melanism (grey level)")
+fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+
+  #add trendlines
+  fig3c= fig3c+
+  geom_abline(aes(slope=year.slope,intercept=year.int))+
+  facet_wrap(~region.lab)+ xlab("Year") +ylab("Wing melanism (grey level)")
 
 #---------
 #Fig 3
@@ -308,14 +392,7 @@ dev.off()
 #STATISTICS
 absM<- absM.all
 
-#BOOTSTRAP
-#Assign site ID
-sites= unique(absM$NewLocation)
-absM$siteID= match(absM$NewLocation, sites)
-absM$YrSite= paste(absM$Year, absM$siteID, sep="")
-
-Nruns= 50 #50 #number of bootstrapp runs                          
-Nsamp= 15 #max sample size of butterflies per site per year   
+   
 
 #-------------------------------------
 #Figure 2 Loveland Pass
