@@ -49,7 +49,7 @@ ClassifySites= function(names, lon, lat, DistCut){
   new.names=names
   stat.coords= cbind(lon,lat)
   
-  for(r in 1:length(lon) ){
+  for(r in 2:length(lon) ){
     dists= spDistsN1(stat.coords, stat.coords[r,], longlat = TRUE) #find distances from focal site in km
     new.names[which(dists<DistCut)]= new.names[r] #rename sites within cutoff radius
   } #end loop sites
@@ -98,13 +98,17 @@ abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 #-------------------------
 #CLIMATE DATA, use weather stations
 
-#Region 1: Climax
+#Region 2: Climax
 #Region 2: MORAN 5WNW, WY USA, 	USC00486440, http://mco.cfc.umt.edu/ghcn/station/USC00486440.html
 #Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
 
 #Load
 setwd(paste(mydir, "data\\", sep=""))
 clim= read.csv("WeatherStationData_Regions.csv")
+
+#Region 2 weather station ~2000m too low, use ICAO environmental lapse rate of 6.5C/km to correct for purposed of plotting
+#Makes too cold, move up 500m?
+clim[which(clim$region==2),"TMEAN"]= clim[which(clim$region==2),"TMEAN"]-6.5/2
 
 #calculate Julian
 clim$DATE= paste(clim$YEAR,"/", clim$MONTH, "/", clim$DAY,sep="")
@@ -134,12 +138,12 @@ for(i in 1:nrow(absM)){ #Lazily coding as a loop
   cdat= clim[match(dev, clim$MYR),"TMEAN"]
   absM$July[i]=mean(cdat, na.rm=TRUE)
   
-  #June15 to July 15
-  dev= paste( 152:181, absM$Year[i],absM$region[i], sep="")     
+  #June 15 to July 15
+  dev= paste( 152:281, absM$Year[i],absM$region[i], sep="")     
   cdat= clim[match(dev, clim$JYR),"TMEAN"]
   absM$June15July15[i]=mean(cdat, na.rm=TRUE)
   
-  #doy160to202
+  #doy162to202
   dev= paste( 162:202, absM$Year[i],absM$region[i], sep="")     
   cdat= clim[match(dev, clim$JYR),"TMEAN"]
   absM$doy162to202[i]=mean(cdat, na.rm=TRUE)
@@ -163,7 +167,7 @@ Nruns= 50 #50 #number of bootstrapp runs
 Nsamp= 15 #max sample size of butterflies per site per year
 
 #=======================
-# Result 1. Maps and overview plots
+# Result 2. Maps and overview plots
 #MAKE INITIAL MAPS
 
 absM.all$Long= as.numeric(as.character(absM.all$Long))
@@ -264,42 +268,50 @@ abs.sub1$YrSite= paste(abs.sub1$Year, abs.sub1$siteID, sep="")
 phen.mod= boot.lm(x=abs.sub1$doy162to202, y=abs.sub1$J, sites= abs.sub1$YrSite, Nruns,Nsamp)
 plast.mod= boot.lm(x=abs.sub1$J, y = abs.sub1$Corr.Val, sites= abs.sub1$YrSite, Nruns,Nsamp)
 year.mod= boot.lm(x=abs.sub1$Year, y = abs.sub1$Corr.Val, sites= abs.sub1$YrSite, Nruns,Nsamp)
-  
+
+#caclulate bootstrap model residuals
+abs.sub1$resid= abs.sub1$Corr.Val-(plast.mod["Estimate"]*abs.sub1$doy +plast.mod["Intercept"])
+
+#residual model
+resid.mod= boot.lm(y=abs.sub1$resid,x=abs.sub1$Year, sites= abs.sub1$YrSite, Nruns,Nsamp)
+
 #------------------------
 #phenology 
 fig2a=ggplot(data=abs.sub1, aes(x=doy162to202, y = J, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)") + theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)") + theme(legend.position="bottom") +scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
 #add trend
 if(phen.mod["P"]<0.05) fig2a= fig2a + geom_abline( aes(slope=phen.mod["Estimate"],intercept=phen.mod["Intercept"]))
 
 #plasticity
-fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
 #add trend
 if(plast.mod["P"]<0.05) fig2b= fig2b + geom_abline( aes(slope=plast.mod["Estimate"],intercept=plast.mod["Intercept"]))
 
 #Results in annual pattern
-fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="bottom") + xlab("Year") +ylab("Wing melanism (grey level)")
+fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="none")+ xlab("Year") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = rev(heat.colors(5)))
 #add trend
 if(year.mod["P"]<0.05) fig2c= fig2c + geom_abline( aes(slope=year.mod["Estimate"],intercept=year.mod["Intercept"]))
 
+#Plasticity residuals ~ year
+fig2d=ggplot(data=abs.sub1, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="bottom") + xlab("Year") +ylab("Residuals(wing melanism~doy)")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+#add trend
+if(resid.mod["P"]<0.05) fig2d= fig2d + geom_abline( aes(slope=resid.mod["Estimate"],intercept=resid.mod["Intercept"]))
+
 #FIG 2
 library(grid)
+library(cowplot)
 
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig2_Loveland.pdf", height=8, width=4)
+pdf("Fig2_Loveland.pdf", height=12, width=4)
 
-grid.newpage()
-pushViewport(viewport(layout=grid.layout(3,1)))
-vplayout<-function(x,y)
-  viewport(layout.pos.row=x,layout.pos.col=y)
-print(fig2a,vp=vplayout(1,1))
-print(fig2b,vp=vplayout(2,1))
-print(fig2c,vp=vplayout(3,1))
+plot_grid(fig2a, fig2b, fig2c, fig2d, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
 
 dev.off()
 
 #------------
 #REGIONS
+#make column for residuals
+absM.all$resid=NA
 
 #Statistics by region 
 #region 1
@@ -312,6 +324,12 @@ phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp
 plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 
+#caclulate bootstrap model residuals by region
+absM.all[which(absM.all$region==1),"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.mod1["Intercept"])
+#residual model
+resid.mod1= boot.lm(y=absM.all[which(absM.all$region==1),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+#---
+
 #region 2
 areg= subset(absM.all, absM.all$region==2)
 areg$siteID= match(areg$NewLocation, sites)
@@ -321,6 +339,12 @@ areg$YrSite= paste(areg$Year, areg$siteID, sep="")
 phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
 plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+
+#caclulate bootstrap model residuals by region
+absM.all[which(absM.all$region==2),"resid"]= areg$Corr.Val-(plast.mod2["Estimate"]*areg$doy +plast.mod2["Intercept"])
+#residual model
+resid.mod2= boot.lm(y=absM.all[which(absM.all$region==2),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+#---
 
 #region 3
 areg= subset(absM.all, absM.all$region==3)
@@ -332,7 +356,13 @@ phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp
 plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 
+#caclulate bootstrap model residuals by region
+absM.all[which(absM.all$region==3),"resid"]= areg$Corr.Val-(plast.mod3["Estimate"]*areg$doy +plast.mod3["Intercept"])
+#residual model
+resid.mod3= boot.lm(y=absM.all[which(absM.all$region==3),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+#---------------
 #add slopes and intercepts
+#phenology
 absM.all$phen.int= NA
 if(phen.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"phen.int"]= phen.mod1["Intercept"]
 if(phen.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"phen.int"]= phen.mod2["Intercept"]
@@ -343,7 +373,38 @@ if(phen.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"phen.
 if(phen.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"phen.slope"]= phen.mod2["Estimate"]
 if(phen.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"phen.slope"]= phen.mod3["Estimate"]
 
-##ADD OTHER VARS
+#plast
+absM.all$plast.int= NA
+if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"plast.int"]= plast.mod1["Intercept"]
+if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"plast.int"]= plast.mod2["Intercept"]
+if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"plast.int"]= plast.mod3["Intercept"]
+
+absM.all$plast.slope= NA
+if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"plast.slope"]= plast.mod1["Estimate"]
+if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"plast.slope"]= plast.mod2["Estimate"]
+if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"plast.slope"]= plast.mod3["Estimate"]
+
+#year
+absM.all$year.int= NA
+if(year.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"year.int"]= year.mod1["Intercept"]
+if(year.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"year.int"]= year.mod2["Intercept"]
+if(year.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"year.int"]= year.mod3["Intercept"]
+
+absM.all$year.slope= NA
+if(year.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"year.slope"]= year.mod1["Estimate"]
+if(year.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"year.slope"]= year.mod2["Estimate"]
+if(year.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"year.slope"]= year.mod3["Estimate"]
+
+#resid
+absM.all$resid.int= NA
+if(resid.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"resid.int"]= resid.mod1["Intercept"]
+if(resid.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"resid.int"]= resid.mod2["Intercept"]
+if(resid.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"resid.int"]= resid.mod3["Intercept"]
+
+absM.all$resid.slope= NA
+if(resid.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"resid.slope"]= resid.mod1["Estimate"]
+if(resid.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"resid.slope"]= resid.mod2["Estimate"]
+if(resid.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"resid.slope"]= resid.mod3["Estimate"]
 
 #-----------
 
@@ -353,93 +414,95 @@ absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
 absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
 
 #Phenology 
-fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()
+fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
 #add trendlines
 fig3a= fig3a+
   geom_abline(aes(slope=phen.slope,intercept=phen.int))+
- facet_wrap(~region.lab)+
-  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ theme(legend.position="bottom")+ scale_color_gradientn(colours = topo.colors(5))
+ facet_wrap(~region.lab)
 
 #Abs
-fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() 
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")
   #add trendlines
   fig3b= fig3b+
   geom_abline(aes(slope=plast.slope,intercept=plast.int))+
-  facet_wrap(~region.lab)+ xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")
+  facet_wrap(~region.lab)
 
 #by year
-fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val))+geom_point(alpha=0.8) +theme_classic()+
+fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Wing melanism (grey level)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
   #add trendlines
   fig3c= fig3c+
   geom_abline(aes(slope=year.slope,intercept=year.int))+
-  facet_wrap(~region.lab)+ xlab("Year") +ylab("Wing melanism (grey level)")
+  facet_wrap(~region.lab)
 
+  #resid by year
+  fig3d<- ggplot(data=absM.all, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(wing melanism ~doy)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+  #add trendlines
+  fig3d= fig3d+
+    geom_abline(aes(slope=resid.slope,intercept=resid.int))+
+    facet_wrap(~region.lab)
+  
 #---------
 #Fig 3
+  
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig3_Regions.pdf", height=8, width=8)
+pdf("Fig3_Regions.pdf", height=10, width=8)
 
-#grid.newpage()
-pushViewport(viewport(layout=grid.layout(3,1)))
-vplayout<-function(x,y)
-  viewport(layout.pos.row=x,layout.pos.col=y)
-print(fig3a,vp=vplayout(1,1))
-print(fig3b,vp=vplayout(2,1))
-print(fig3c,vp=vplayout(3,1))
+plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
+
 dev.off()
+
+# pushViewport(viewport(layout=grid.layout(4,1)))
+# vplayout<-function(x,y)
+#   viewport(layout.pos.row=x,layout.pos.col=y)
+# print(fig3a,vp=vplayout(1,1))
+# print(fig3b,vp=vplayout(2,1))
+# print(fig3c,vp=vplayout(3,1))
+# print(fig3d,vp=vplayout(4,1))
+
+
+#-------------
+#Regional plots for other traits
+
+absM.all$ThoraxC= as.numeric(as.character(absM.all$ThoraxC))
+
+#Thorax
+#FWL
+ggplot(data=absM.all, aes(x=doy, y = Thorax, color=Year ))+geom_point(alpha=0.8) +theme_classic() + facet_wrap(~region.lab)+geom_smooth(method="lm")
+
+ggplot(data=absM.all, aes(x=Year, y = FWL))+geom_point(alpha=0.8) +theme_classic()+ facet_wrap(~region.lab)+geom_smooth(method="lm")
 
 #=====================
 #STATISTICS
 absM<- absM.all
 
-   
-
-#-------------------------------------
-#Figure 2 Loveland Pass
-
-abs.sub1$siteID= match(abs.sub1$NewLocation, sites)
-abs.sub1$YrSite= paste(abs.sub1$Year, abs.sub1$siteID, sep="")
-
-#Bootstrap
-mod1= boot.lm(x=abs.sub1$doy162to202, y=abs.sub1$doy, sites= abs.sub1$YrSite, Nruns,Nsamp)
-
-#---------------------------------------
-
-
-
-#normalize
-abs2<-scale(absM[,c("JJTave","doy","Year")], center=TRUE, scale=FALSE)
-absM[,c("JJTave","doy","Year")]=abs2
+#Spatial models corresponding to figures
+#regions
+dat= absM.all[absM.all$region ==1, ]
 #Remove NAs
-dat= na.omit(absM[,c("Corr.Val","JJTave","doy","Year", "lon","lat","YrSite","region","NewLocation")])
+dat= na.omit(dat[,c("Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
 
-#-------
-boot.lm(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp)
+phen.mod= boot.sar.lm(y=dat$doy,x=dat$doy162to202,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
+plast.mod= boot.sar.lm(y=dat$Corr.Val,x=dat$doy,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
+year.mod= boot.sar.lm(y=dat$Corr.Val,x=dat$Year,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
 
-#--------------------
-#SPATIAL ANALYSIS  
+#-----------------
+#Residual regressions on year
+plast.mod= lm(Corr.Val~doy, data=dat)
+resid.mod= lm( resid(plast.mod)~Year, data=dat )
 
-boot.spatlm(dat, sites= dat$YrSite, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon=dat$lon, lat=dat$lat, Nruns,Nsamp)
+dat$resid= resid(plast.mod)
 
-#All sites
+ggplot(data=dat, aes(x=Year, y = resid, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic() +geom_smooth(method="lm")
 
+#caclulate bootstrap model residuals
+dat$resid= dat$Corr.Val-(plast.mod["Estimate"]*dat$doy +plast.mod["Intercept"])
 
-mod1= boot.lm(x=dat$JJTave, y=dat$doy, sites= dat$YrSite, Nruns,Nsamp)
+#plot
+ggplot(data=dat, aes(x=Year, y = resid, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic() +geom_smooth(method="lm")
 
+#residual model
+resid.mod= boot.sar.lm(y=dat$resid,x=dat$Year,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
 
-
-
-#=========================================
-
-mod1= lm(Corr.Val~doy*JJTave, data=abs.sub1)
-
-#normalize
-abs2<-scale(abs.sub1[,c("J","Year","JJTave","JJTave.p")], center=TRUE, scale=FALSE)
-abs.sub2= abs.sub1
-abs.sub2[,c("J","Year","JJTave","JJTave.p")]=abs2
-
-absM<- na.omit(abs.sub2[,c("Corr.Val","ThoraxC","NewLocation","J","Year","JJTave","JJTave.p")])
-
-#----------
-
+###############################################
 

@@ -47,12 +47,120 @@ boot.lm<- function(x=absM$JJTave, y=absM$doy, sites= absM$YrSite, Nruns,Nsamp){
 }
 
 #=================================
-#SPATIAL ANALYSIS
+#SPATIAL ANALYSIS 1 PREDICTOR
 
-spat.mod.var(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat)
+#FUNCTION TO RUN SPATIAL ANALYIS, error model, 40km neighborhood
+spat.mod.reg= function(y, x, lon, lat){
+  
+  #define spatial neighborhood
+  coords= as.matrix(cbind(lon,lat))
+  ## Build neighborhood
+  m.nb40 <- dnearneigh(coords,0,40,longlat=TRUE)
+  # establish weights for the given list of neighbors, "B" = binary (all equal), "W" = row standardized
+  m.sw40 <- nb2listw(m.nb40, glist=NULL, style="W", zero.policy=TRUE)
+  
+  #--------
+  #MODELS
+  m_SAR40= spautolm(y~x, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
+
+  ret=c(summary(m_SAR40)$Coef[1,1], summary(m_SAR40)$Coef[2,], summary(m_SAR40)$LR1$statistic,  summary(m_SAR40)$LR1$p.value )
+  
+  return(ret )
+  
+} #end spatial analysis function
+
+#--------------
+#bootstrap
+
+boot.sar.lm<- function(y,x,lon,lat, sites, Nruns,Nsamp){
+  out<- matrix(NA, nrow=Nruns, ncol=7)
+  
+  for(r in 1:Nruns){
+    
+    #sub sample
+    z <- sapply(unique(sites), FUN= function(x){ 
+      sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
+    })
+    x.boot<- x[unlist(z)]
+    y.boot<- y[unlist(z)]
+    lon.boot<- lon[unlist(z)]
+    lat.boot<- lat[unlist(z)]
+    
+    #run model
+    out[r,]=spat.mod.reg(y=y.boot, x=x.boot, lon=lon.boot, lat=lat.boot)
+    
+  }# end loop
+  
+  #average
+  colnames(out)= c("Intercept","Estimate","SE","z","P","LR","LR_P")
+  out.r= colMeans(out)
+  
+  return(out.r)
+}
+
+#=================================
+#Multiple regression (no dredge or model selection, see below for model selection)
+#fix for 2 predictors and interaction
+
+#FUNCTION TO RUN SPATIAL ANALYIS, error model, 40km neighborhood
+spat.mod.mult= function(y, x1,x2, lon, lat){
+  
+  #define spatial neighborhood
+  coords= as.matrix(cbind(lon,lat))
+  ## Build neighborhood
+  m.nb40 <- dnearneigh(coords,0,40,longlat=TRUE)
+  # establish weights for the given list of neighbors, "B" = binary (all equal), "W" = row standardized
+  m.sw40 <- nb2listw(m.nb40, glist=NULL, style="W", zero.policy=TRUE)
+  
+  #--------
+  #MODELS
+  m_SAR40= spautolm(y~x1*x2, listw= m.sw40, family = "SAR", method="eigen", na.action='na.pass')
+  
+  ret=c(summary(m_SAR40)$Coef[1,1], summary(m_SAR40)$Coef[2,],summary(m_SAR40)$Coef[3,],summary(m_SAR40)$Coef[4,], summary(m_SAR40)$LR1$statistic,  summary(m_SAR40)$LR1$p.value )
+  
+  return(ret )
+  
+} #end spatial analysis function
+
+#--------------
+#bootstrap
+
+boot.sar.mult<- function(y,x1,x2,lon,lat, sites, Nruns,Nsamp){
+  out<- matrix(NA, nrow=Nruns, ncol=7)
+  
+  for(r in 1:Nruns){
+    
+    #sub sample
+    z <- sapply(unique(sites), FUN= function(x){ 
+      sample(which(sites==x), min(Nsamp, length(which(sites==x))), FALSE)
+    })
+    x.boot<- x[unlist(z)]
+    y.boot<- y[unlist(z)]
+    lon.boot<- lon[unlist(z)]
+    lat.boot<- lat[unlist(z)]
+    
+    #run model
+    out[r,]=spat.mod.reg(y=y.boot, x=x.boot, lon=lon.boot, lat=lat.boot)
+    
+  }# end loop
+  
+  #average
+  colnames(out)= c("Intercept","Estimate","SE","z","P","LR","LR_P")
+  out.r= colMeans(out)
+  
+  return(out.r)
+}
+
+
+
+
+#=================================
+#SPATIAL ANALYSIS
+dat= na.omit(absM)
+spat.mod.var(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:doy162to202"), dat$lon, dat$lat)
   
 #FUNCTION TO RUN SPATIAL ANALYIS, error model, 40km neighborhood
-spat.mod.var= function(dat, yvar="Corr.Val", xvars=c("JJTave","doy","doy:JJTave"), lon, lat){
+spat.mod.var= function(dat, yvar, xvars, lon, lat){
   
   #define spatial neighborhood
   coords= as.matrix(cbind(lon,lat))
@@ -161,7 +269,7 @@ my.prplot= function (g, i, xlabs)  #beautify plot
   xl <- xlabs[i]
   yl <- paste("")
   x <- model.matrix(g)[, i + 1]
-  plot(x, g$coeff[i + 1] * x + g$res, xlab = xl, ylab = yl, col=rgb(0.2,0.2, 0.2, 0.5),pch=16)        #@I played with different plot characters to get different plots. Not sold
+  plot(x, g$coeff[i + 1] * x + g$res, xlab = xl, ylab = yl, col=rgb(0.2,0.2, 0.2, 0.5),pch=16)        
   abline(0, g$coeff[i + 1])
   invisible()
 }
