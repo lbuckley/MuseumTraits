@@ -98,7 +98,7 @@ abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 #-------------------------
 #CLIMATE DATA, use weather stations
 
-#Region 2: Climax
+#Region 1: Climax
 #Region 2: MORAN 5WNW, WY USA, 	USC00486440, http://mco.cfc.umt.edu/ghcn/station/USC00486440.html
 #Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
 
@@ -139,7 +139,7 @@ for(i in 1:nrow(absM)){ #Lazily coding as a loop
   absM$July[i]=mean(cdat, na.rm=TRUE)
   
   #June 15 to July 15
-  dev= paste( 152:281, absM$Year[i],absM$region[i], sep="")     
+  dev= paste( 152:181, absM$Year[i],absM$region[i], sep="")     
   cdat= clim[match(dev, clim$JYR),"TMEAN"]
   absM$June15July15[i]=mean(cdat, na.rm=TRUE)
   
@@ -167,7 +167,7 @@ Nruns= 50 #50 #number of bootstrapp runs
 Nsamp= 15 #max sample size of butterflies per site per year
 
 #=======================
-# Result 2. Maps and overview plots
+# Result 1. Maps and overview plots
 #MAKE INITIAL MAPS
 
 absM.all$Long= as.numeric(as.character(absM.all$Long))
@@ -274,6 +274,15 @@ abs.sub1$resid= abs.sub1$Corr.Val-(plast.mod["Estimate"]*abs.sub1$doy +plast.mod
 
 #residual model
 resid.mod= boot.lm(y=abs.sub1$resid,x=abs.sub1$Year, sites= abs.sub1$YrSite, Nruns,Nsamp)
+
+#linear models without bootstrap
+mod= lm(abs.sub1$J~ abs.sub1$doy162to202)
+mod= lm(abs.sub1$Corr.Val ~ abs.sub1$J)
+mod= lm(resid(mod)~ abs.sub1$Year) #sig
+
+mod= lm(abs.sub1$Corr.Val~ abs.sub1$Year) #sig
+
+summary(mod)
 
 #------------------------
 #phenology 
@@ -475,10 +484,12 @@ ggplot(data=absM.all, aes(x=Year, y = FWL))+geom_point(alpha=0.8) +theme_classic
 #=====================
 #STATISTICS
 absM<- absM.all
+absM$siteID= match(absM$NewLocation, sites)
+absM$YrSite= paste(absM$Year, absM$siteID, sep="")
 
 #Spatial models corresponding to figures
 #regions
-dat= absM.all[absM.all$region ==1, ]
+dat= absM[absM$region ==2, ]
 #Remove NAs
 dat= na.omit(dat[,c("Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
 
@@ -486,23 +497,16 @@ phen.mod= boot.sar.lm(y=dat$doy,x=dat$doy162to202,lon=dat$lon,lat=dat$lat, sites
 plast.mod= boot.sar.lm(y=dat$Corr.Val,x=dat$doy,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
 year.mod= boot.sar.lm(y=dat$Corr.Val,x=dat$Year,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
 
-#-----------------
-#Residual regressions on year
-plast.mod= lm(Corr.Val~doy, data=dat)
-resid.mod= lm( resid(plast.mod)~Year, data=dat )
-
-dat$resid= resid(plast.mod)
-
-ggplot(data=dat, aes(x=Year, y = resid, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic() +geom_smooth(method="lm")
-
-#caclulate bootstrap model residuals
+#spatial bootstrap residual model
 dat$resid= dat$Corr.Val-(plast.mod["Estimate"]*dat$doy +plast.mod["Intercept"])
-
-#plot
-ggplot(data=dat, aes(x=Year, y = resid, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic() +geom_smooth(method="lm")
 
 #residual model
 resid.mod= boot.sar.lm(y=dat$resid,x=dat$Year,lon=dat$lon,lat=dat$lat, sites= dat$YrSite, Nruns,Nsamp)
+
+#--------
+#Residual regressions on year
+plast.mod= lm(Corr.Val~doy, data=dat)
+resid.mod= lm( resid(plast.mod)~Year, data=dat )
 
 ###############################################
 
