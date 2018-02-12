@@ -86,6 +86,8 @@ abs= abs[abs$doy>171,]
 #Sex
 absM<- subset(abs,Sex =="M")
 
+#After 1950?
+absM<- subset(absM, Year >=1953 )
 #-----------------------
 #DATA COUNTS
 count=function(x) length(na.omit(x))
@@ -232,6 +234,10 @@ clim.devs= rbind(clim.dev1, clim.dev2, clim.dev3)
 #add dots for years with samples
 clim.plot= clim.plot+ geom_point(data=clim.devs, aes(x=YEAR, y = TMEAN, color=region.f))
 
+#temp models
+clim.sub= subset(clim.dev, region==3)
+summary(lm(TMEAN~YEAR, data= clim.sub))
+
 #-------------------
 
 #COMBINE
@@ -241,8 +247,8 @@ setwd(paste(mydir, "figures\\", sep=""))
 pdf("ElevFig.pdf", height=8, width=8)
 
 ##open pdf
-subvp.t<-viewport(width=.5,height=.38,x=.7,y=0.8)
-subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.34)
+subvp.t<-viewport(width=.5,height=.38,x=.74,y=0.8)
+subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.36)
 ##Next, open the main graph which was stored in b by typing b at the prompt:
 aper1.map
 ##Then, superimpose the graph stored in a on the viewport as:
@@ -327,48 +333,75 @@ absM.all$resid=NA
 areg= subset(absM.all, absM.all$region==1)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
 
 #Bootstrap by region
-phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+phen.mod1= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+year.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
 #caclulate bootstrap model residuals by region
-absM.all[which(absM.all$region==1),"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.mod1["Intercept"])
+absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.mod1["Intercept"])
 #residual model
-resid.mod1= boot.lm(y=absM.all[which(absM.all$region==1),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+resid.mod1= boot.lm(y=absM.all[match1,"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+
+phen.mod3
+plast.mod3
+year.mod3
+resid.mod3
 #---
 
 #region 2
 areg= subset(absM.all, absM.all$region==2)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
 
 #Bootstrap by region
-phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+phen.mod2= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+year.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
 #caclulate bootstrap model residuals by region
-absM.all[which(absM.all$region==2),"resid"]= areg$Corr.Val-(plast.mod2["Estimate"]*areg$doy +plast.mod2["Intercept"])
+absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod2["Estimate"]*areg$doy +plast.mod2["Intercept"])
 #residual model
-resid.mod2= boot.lm(y=absM.all[which(absM.all$region==2),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+resid.mod2= boot.lm(y=absM.all[match1,"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
 #---
 
 #region 3
 areg= subset(absM.all, absM.all$region==3)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
 
 #Bootstrap by region
-phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+phen.mod3= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+year.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
 #caclulate bootstrap model residuals by region
-absM.all[which(absM.all$region==3),"resid"]= areg$Corr.Val-(plast.mod3["Estimate"]*areg$doy +plast.mod3["Intercept"])
+absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod3["Estimate"]*areg$doy +plast.mod3["Intercept"])
 #residual model
-resid.mod3= boot.lm(y=absM.all[which(absM.all$region==3),"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+resid.mod3= boot.lm(y=absM.all[match1,"resid"],x=areg$Year, sites= areg$YrSite, Nruns,Nsamp)
+
 #---------------
 #add slopes and intercepts
 #phenology
