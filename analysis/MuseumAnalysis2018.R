@@ -88,6 +88,10 @@ absM<- subset(abs,Sex =="M")
 
 #After 1950?
 absM<- subset(absM, Year >=1953 )
+
+#Fix grey value
+absM$Corr.Val= 1-absM$Corr.Val
+
 #-----------------------
 #DATA COUNTS
 count=function(x) length(na.omit(x))
@@ -119,12 +123,23 @@ clim$J=tmp$yday
 clim$JYR= paste(clim$J, clim$YEAR,clim$region, sep="")
 clim$MYR= paste(clim$MONTH, clim$YEAR,as.character(clim$region), sep="")
 
+#----------------
+#Plot temperature seasonality
+
+clim1= subset(clim, region==1)
+clim1= subset(clim1, YEAR>=1950)
+clim1$time.per="pre 1975"
+clim1$time.per[which(clim1$YEAR>=1975)]="post 1975"
+
+ggplot(clim1) + geom_smooth(aes(J, TMEAN, group = YEAR, color = time.per), alpha = 0.8, se=FALSE) +xlim(160,240)+theme_classic()+ylab("Temperature (°C)") +xlab("doy")+labs(color="Time period")
+
 #---------------- 
 #match to temp
 absM$June=NA
 absM$July=NA
 absM$June15July15=NA
 absM$doy162to202=NA
+absM$Tpupal=NA
 
 absM$J=absM$doy
 
@@ -150,10 +165,27 @@ for(i in 1:nrow(absM)){ #Lazily coding as a loop
   cdat= clim[match(dev, clim$JYR),"TMEAN"]
   absM$doy162to202[i]=mean(cdat, na.rm=TRUE)
   
+  #pupal
+  pupal= paste( (absM$J[i]-26):(absM$J[i]-6), absM$Year[i],absM$region[i], sep="")      
+  cdat= clim[match(pupal, clim$JYR),"TMEAN"]
+  absM$Tpupal[i]=mean(cdat, na.rm=TRUE)
+  
 } #end loop rows
 
 #JuneJuly
 absM$JJTave= (absM$June + absM$July) / 2
+
+#---------------------------
+#DIVIDE BY TIME PERIOD
+absM$time.per="pre 1975"
+absM$time.per[which(absM.all$Year>1975) ]="post 1975"
+absM$seas="early"
+absM$seas[which(absM.all$doy>200) ]="late"
+# absM.all$elev="low"
+# absM.all$elev[which(absM.all$estElevation>3500) ]="high"
+# absM.all$temp="cool"
+# absM.all$temp[which(absM.all$doy162to202>10) ]="warm"
+#-------------------------
 
 #save
 absM.all= absM
@@ -301,7 +333,7 @@ fig2a=ggplot(data=abs.sub1, aes(x=doy162to202, y = J, color=Year ))+geom_point(a
 if(phen.mod["P"]<0.05) fig2a= fig2a + geom_abline( aes(slope=phen.mod["Estimate"],intercept=phen.mod["Intercept"]))
 
 #plasticity
-fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+#scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
 #add trend
 if(plast.mod["P"]<0.05) fig2b= fig2b + geom_abline( aes(slope=plast.mod["Estimate"],intercept=plast.mod["Intercept"]))
 
@@ -326,7 +358,7 @@ plot_grid(fig2a, fig2b, fig2c, fig2d, align = "v", nrow = 4, rel_heights = c(1,1
 
 dev.off()
 
-#------------
+#===========================
 #REGIONS
 #make column for residuals
 absM.all$resid=NA
@@ -336,7 +368,7 @@ absM.all$resid=NA
 areg= subset(absM.all, absM.all$region==1)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite","time.per")])
 
 #check interaction
 mod1= lm(Corr.Val~ J + doy162to202 + doy162to202*J + Year, data=areg)
@@ -349,6 +381,16 @@ match1= match(areg$ID, absM.all$ID)
 #plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 #year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 phen.mod1= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+#plasticity pre 1975
+areg.pre= subset(areg, areg$time.per=="pre 1975")
+plast.mod1.pre= boot.sar.lm(y=areg.pre$Corr.Val,x=areg.pre$doy,lon=areg.pre$lon,lat=areg.pre$lat, sites= areg.pre$YrSite, Nruns,Nsamp)
+
+#restrict to post 1975
+areg= subset(areg, areg$time.per=="post 1975")
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
 plast.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 year.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
@@ -357,17 +399,18 @@ absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.
 #residual model
 resid.mod1= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
-phen.mod3
-plast.mod3
-year.mod3
-resid.mod3
+phen.mod1
+plast.mod1
+plast.mod1.pre
+year.mod1
+resid.mod1
 #---
 
 #region 2
 areg= subset(absM.all, absM.all$region==2)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite","time.per")])
 
 #match IDs
 match1= match(areg$ID, absM.all$ID)
@@ -377,6 +420,16 @@ match1= match(areg$ID, absM.all$ID)
 #plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 #year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 phen.mod2= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+#plasticity pre 1975
+areg.pre= subset(areg, areg$time.per=="pre 1975")
+plast.mod2.pre= boot.sar.lm(y=areg.pre$Corr.Val,x=areg.pre$doy,lon=areg.pre$lon,lat=areg.pre$lat, sites= areg.pre$YrSite, Nruns,Nsamp)
+
+#restrict to post 1975
+areg= subset(areg, areg$time.per=="post 1975")
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
 plast.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 year.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
@@ -390,7 +443,7 @@ resid.mod2= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=
 areg= subset(absM.all, absM.all$region==3)
 areg$siteID= match(areg$NewLocation, sites)
 areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite","time.per")])
 
 #match IDs
 match1= match(areg$ID, absM.all$ID)
@@ -400,6 +453,16 @@ match1= match(areg$ID, absM.all$ID)
 #plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 #year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 phen.mod3= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+#plasticity pre 1975
+areg.pre= subset(areg, areg$time.per=="pre 1975")
+plast.mod3.pre= boot.sar.lm(y=areg.pre$Corr.Val,x=areg.pre$doy,lon=areg.pre$lon,lat=areg.pre$lat, sites= areg.pre$YrSite, Nruns,Nsamp)
+
+#restrict to post 1975
+areg= subset(areg, areg$time.per=="post 1975")
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
 plast.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 year.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 
@@ -421,16 +484,27 @@ if(phen.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"phen.
 if(phen.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"phen.slope"]= phen.mod2["Estimate"]
 if(phen.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"phen.slope"]= phen.mod3["Estimate"]
 
-#plast
+#plast pre 1975
 absM.all$plast.int= NA
-if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"plast.int"]= plast.mod1["Intercept"]
-if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"plast.int"]= plast.mod2["Intercept"]
-if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"plast.int"]= plast.mod3["Intercept"]
+if(plast.mod1.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"&absM.all$time.per=="pre 1975"),"plast.int"]= plast.mod1.pre["Intercept"]
+if(plast.mod2.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"&absM.all$time.per=="pre 1975"),"plast.int"]= plast.mod2.pre["Intercept"]
+if(plast.mod3.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"&absM.all$time.per=="pre 1975"),"plast.int"]= plast.mod3.pre["Intercept"]
 
 absM.all$plast.slope= NA
-if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"),"plast.slope"]= plast.mod1["Estimate"]
-if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"),"plast.slope"]= plast.mod2["Estimate"]
-if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"),"plast.slope"]= plast.mod3["Estimate"]
+if(plast.mod1.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"&absM.all$time.per=="pre 1975"),"plast.slope"]= plast.mod1.pre["Estimate"]
+if(plast.mod2.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"&absM.all$time.per=="pre 1975"),"plast.slope"]= plast.mod2.pre["Estimate"]
+if(plast.mod3.pre["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"&absM.all$time.per=="pre 1975"),"plast.slope"]= plast.mod3.pre["Estimate"]
+
+#plast
+#absM.all$plast.int= NA
+if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"&absM.all$time.per=="post 1975"),"plast.int"]= plast.mod1["Intercept"]
+if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"&absM.all$time.per=="post 1975"),"plast.int"]= plast.mod2["Intercept"]
+if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"&absM.all$time.per=="post 1975"),"plast.int"]= plast.mod3["Intercept"]
+
+#absM.all$plast.slope= NA
+if(plast.mod1["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 1"&absM.all$time.per=="post 1975"),"plast.slope"]= plast.mod1["Estimate"]
+if(plast.mod2["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 2"&absM.all$time.per=="post 1975"),"plast.slope"]= plast.mod2["Estimate"]
+if(plast.mod3["P"]<0.05) absM.all[which(absM.all$region.lab == "Region 3"&absM.all$time.per=="post 1975"),"plast.slope"]= plast.mod3["Estimate"]
 
 #year
 absM.all$year.int= NA
@@ -468,14 +542,20 @@ fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_poi
 fig3a= fig3a+
   geom_abline(aes(slope=phen.slope,intercept=phen.int))+
  facet_wrap(~region.lab)
+ 
+#---------------
+#Plasticity
+absM.all$time.per= ordered(absM.all$time.per, levels=c("pre 1975","post 1975") )
 
-#Abs
 fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")
   #add trendlines
   fig3b= fig3b+
   geom_abline(aes(slope=plast.slope,intercept=plast.int))+
-  facet_wrap(~region.lab)
+    facet_grid(time.per~region.lab)
 
+#POST 1975
+absM.all= subset(absM.all, Year>=1975)
+  
 #by year
 fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Wing melanism (grey level)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
   #add trendlines
@@ -496,7 +576,7 @@ fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom
 setwd(paste(mydir, "figures\\", sep=""))
 pdf("Fig3_Regions.pdf", height=10, width=8)
 
-plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
+plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.4,1,1.4))
 
 dev.off()
 
@@ -508,81 +588,13 @@ dev.off()
 # print(fig3c,vp=vplayout(3,1))
 # print(fig3d,vp=vplayout(4,1))
 
-#-------------
+#===================================
 #Regional plots for other traits
 #Thorax
 #FWL
 absM.all$Corr.Val<- absM.all$Thorax
 
-#REGIONS
-#make column for residuals
-absM.all$resid=NA
-
-#Statistics by region 
-#region 1
-areg= subset(absM.all, absM.all$region==1)
-areg$siteID= match(areg$NewLocation, sites)
-areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
-
-#match IDs
-match1= match(areg$ID, absM.all$ID)
-
-#Bootstrap by region
-#phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-#plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-#year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-phen.mod1= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-plast.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-year.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-
-#caclulate bootstrap model residuals by region
-absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.mod1["Intercept"])
-#residual model
-resid.mod1= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-
-phen.mod3
-plast.mod3
-year.mod3
-resid.mod3
-#---
-
-#region 2
-areg= subset(absM.all, absM.all$region==2)
-areg$siteID= match(areg$NewLocation, sites)
-areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
-
-#match IDs
-match1= match(areg$ID, absM.all$ID)
-
-#Bootstrap by region
-#phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-#plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-#year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-phen.mod2= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-plast.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-year.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-
-#caclulate bootstrap model residuals by region
-absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod2["Estimate"]*areg$doy +plast.mod2["Intercept"])
-#residual model
-resid.mod2= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
-#---
-
-#region 3
-areg= subset(absM.all, absM.all$region==3)
-areg$siteID= match(areg$NewLocation, sites)
-areg$YrSite= paste(areg$Year, areg$siteID, sep="")
-areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
-
-#match IDs
-match1= match(areg$ID, absM.all$ID)
-
-#Bootstrap by region
-#phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
-#plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
-#year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+ t.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 phen.mod3= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 plast.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 year.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
@@ -680,12 +692,29 @@ fig3d= fig3d+
 setwd(paste(mydir, "figures\\", sep=""))
 pdf("Fig3_Regions_setae.pdf", height=10, width=8)
 
-plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
+plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.4,1,1.4))
 
 dev.off()
 
 
 ###############################################
+#check data
+areg= subset(absM.all, absM.all$region==1)
 
+plot1=ggplot(data=areg, aes(x=Year, y = min_Standard))+geom_point()+geom_smooth(method="lm")
+plot2=ggplot(data=areg, aes(x=Year, y = max_Sample))+geom_point()+geom_smooth(method="lm")
+plot3=ggplot(data=areg, aes(x=Year, y = mean_Standard))+geom_point()+geom_smooth(method="lm")
+plot_grid(plot1, plot2, plot3, align = "v", nrow = 1)
+
+
+ggplot(data=areg, aes(x=Year, y = (areg$max_Sample- areg$min_Sample) ))+geom_point()+geom_smooth(method="lm")
+
+areg$grey= 1-(areg$mean_Sample- areg$mean_Standard)/(255- areg$min_Standard  )
+
+areg$grey= 1- (areg$mean_Sample- areg$min_Standard)/(255- areg$min_Standard)
+areg$grey= 1- (areg$mean_Standard- areg$min_Standard)/(255- areg$min_Standard)
+
+ggplot(data=areg, aes(x=Year, y = grey))+geom_point()+geom_smooth(method="lm")
+ggplot(data=areg, aes(x=Year, y = Corr.Val))+geom_point()+geom_smooth(method="lm")
 
 
