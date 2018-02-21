@@ -178,9 +178,9 @@ absM$JJTave= (absM$June + absM$July) / 2
 #---------------------------
 #DIVIDE BY TIME PERIOD
 absM$time.per="pre 1975"
-absM$time.per[which(absM.all$Year>1975) ]="post 1975"
+absM$time.per[which(absM$Year>1975) ]="post 1975"
 absM$seas="early"
-absM$seas[which(absM.all$doy>200) ]="late"
+absM$seas[which(absM$doy>200) ]="late"
 # absM.all$elev="low"
 # absM.all$elev[which(absM.all$estElevation>3500) ]="high"
 # absM.all$temp="cool"
@@ -195,7 +195,7 @@ absM.all= absM
 #Assign site ID
 sites= unique(absM.all$NewLocation)
 absM.all$siteID= match(absM.all$NewLocation, sites)
-absM$YrSite= paste(absM.all$Year, absM.all$siteID, sep="")
+absM.all$YrSite= paste(absM.all$Year, absM.all$siteID, sep="")
 
 Nruns= 50 #50 #number of bootstrapp runs                          
 Nsamp= 15 #max sample size of butterflies per site per year
@@ -217,15 +217,13 @@ map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE) #
 
 #elevation
-absM$Long= as.numeric(as.character(absM$Long))
-
-aper1.map<- map1 +geom_point(data=absM, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = topo.colors(5))
+aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = topo.colors(5))
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
-elev.plot<-ggplot(data=absM, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_classic()+
+elev.plot<-ggplot(data=absM.all, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_classic()+
   labs(x = "Latitude (°)",y="Elevation (m)")
   # , color=doy #geom_smooth(method="lm")+
 
@@ -333,7 +331,7 @@ fig2a=ggplot(data=abs.sub1, aes(x=doy162to202, y = J, color=Year ))+geom_point(a
 if(phen.mod["P"]<0.05) fig2a= fig2a + geom_abline( aes(slope=phen.mod["Estimate"],intercept=phen.mod["Intercept"]))
 
 #plasticity
-fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+#scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
 #add trend
 if(plast.mod["P"]<0.05) fig2b= fig2b + geom_abline( aes(slope=plast.mod["Estimate"],intercept=plast.mod["Intercept"]))
 
@@ -547,24 +545,24 @@ fig3a= fig3a+
 #Plasticity
 absM.all$time.per= ordered(absM.all$time.per, levels=c("pre 1975","post 1975") )
 
-fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")+ theme(legend.key.width=unit(1,"cm"))
   #add trendlines
   fig3b= fig3b+
   geom_abline(aes(slope=plast.slope,intercept=plast.int))+
     facet_grid(time.per~region.lab)
 
 #POST 1975
-absM.all= subset(absM.all, Year>=1975)
+absM.post= subset(absM.all, Year>=1975)
   
 #by year
-fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Wing melanism (grey level)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
+fig3c<- ggplot(data=absM.post, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Wing melanism (grey level)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
   #add trendlines
   fig3c= fig3c+
   geom_abline(aes(slope=year.slope,intercept=year.int))+
   facet_wrap(~region.lab)
 
   #resid by year
-  fig3d<- ggplot(data=absM.all, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(wing melanism ~doy)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+  fig3d<- ggplot(data=absM.post, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(grey ~doy)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
   #add trendlines
   fig3d= fig3d+
     geom_abline(aes(slope=resid.slope,intercept=resid.int))+
@@ -576,7 +574,7 @@ fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom
 setwd(paste(mydir, "figures\\", sep=""))
 pdf("Fig3_Regions.pdf", height=10, width=8)
 
-plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.4,1,1.4))
+plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.2,1,1.4))
 
 dev.off()
 
@@ -594,7 +592,75 @@ dev.off()
 #FWL
 absM.all$Corr.Val<- absM.all$Thorax
 
- t.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#REGIONS
+#make column for residuals
+absM.all$resid=NA
+
+#Statistics by region 
+#region 1
+areg= subset(absM.all, absM.all$region==1)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
+#Bootstrap by region
+#phen.mod1= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod1= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod1= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+phen.mod1= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+year.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+#caclulate bootstrap model residuals by region
+absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod1["Estimate"]*areg$doy +plast.mod1["Intercept"])
+#residual model
+resid.mod1= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+phen.mod3
+plast.mod3
+year.mod3
+resid.mod3
+#---
+
+#region 2
+areg= subset(absM.all, absM.all$region==2)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
+#Bootstrap by region
+#phen.mod2= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod2= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod2= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+phen.mod2= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+plast.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+year.mod2= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
+#caclulate bootstrap model residuals by region
+absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod2["Estimate"]*areg$doy +plast.mod2["Intercept"])
+#residual model
+resid.mod2= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+#---
+
+#region 3
+areg= subset(absM.all, absM.all$region==3)
+areg$siteID= match(areg$NewLocation, sites)
+areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+areg= na.omit(areg[,c("ID","Corr.Val","doy","Year", "lon","lat","NewLocation","doy162to202","YrSite")])
+
+#match IDs
+match1= match(areg$ID, absM.all$ID)
+
+#Bootstrap by region
+#phen.mod3= boot.lm(x=areg$doy162to202, y=areg$J, sites= areg$YrSite, Nruns,Nsamp)
+#plast.mod3= boot.lm(x=areg$J, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
+#year.mod3= boot.lm(x=areg$Year, y = areg$Corr.Val, sites= areg$YrSite, Nruns,Nsamp)
 phen.mod3= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 plast.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 year.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
@@ -603,6 +669,7 @@ year.mod3= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, si
 absM.all[match1,"resid"]= areg$Corr.Val-(plast.mod3["Estimate"]*areg$doy +plast.mod3["Intercept"])
 #residual model
 resid.mod3= boot.sar.lm(y=absM.all[match1,"resid"],x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+
 
 #---------------
 #add slopes and intercepts
