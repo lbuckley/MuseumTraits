@@ -217,7 +217,7 @@ map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE) #
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = topo.colors(5))
+aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.key.width=unit(1,"cm"))
 
 #-------------------
 #Elevation inset plot
@@ -402,6 +402,7 @@ plast.mod1
 plast.mod1.pre
 year.mod1
 resid.mod1
+
 #---
 
 #region 2
@@ -588,9 +589,9 @@ dev.off()
 
 #===================================
 #Regional plots for other traits
-#Thorax
-#FWL
-absM.all$Corr.Val<- absM.all$Thorax
+
+#absM.all$Corr.Val<- absM.all$Thorax
+absM.all$Corr.Val<- absM.all$FWL
 
 #REGIONS
 #make column for residuals
@@ -733,21 +734,21 @@ fig3a= fig3a+
   facet_wrap(~region.lab)
 
 #Abs
-fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Setae length (mm)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")
+fig3b<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Phenology (doy)") +ylab("Forewing length (mm)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")+ theme(legend.key.width=unit(1,"cm"))
 #add trendlines
 fig3b= fig3b+
   geom_abline(aes(slope=plast.slope,intercept=plast.int))+
   facet_wrap(~region.lab)
 
 #by year
-fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Setae length (mm)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
+fig3c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Forewing length (mm)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))
 #add trendlines
 fig3c= fig3c+
   geom_abline(aes(slope=year.slope,intercept=year.int))+
   facet_wrap(~region.lab)
 
 #resid by year
-fig3d<- ggplot(data=absM.all, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(setae length ~doy)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+fig3d<- ggplot(data=absM.all, aes(x=Year, y = resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(forewing length ~doy)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
 #add trendlines
 fig3d= fig3d+
   geom_abline(aes(slope=resid.slope,intercept=resid.int))+
@@ -757,9 +758,10 @@ fig3d= fig3d+
 #Fig 3
 
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig3_Regions_setae.pdf", height=10, width=8)
+#pdf("Fig3_Regions_setae.pdf", height=10, width=8)
+pdf("Fig3_Regions_FWL.pdf", height=10, width=8)
 
-plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.4,1,1.4))
+plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
 
 dev.off()
 
