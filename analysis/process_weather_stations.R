@@ -54,9 +54,12 @@ setwd(paste(mydir, "data\\BlueHillLO\\", sep=""))
 bluehill=read.csv("bluehillLO_19622007.csv")
 bluehill$region=3
 #many NAs after 2007
+#add blank Tmin, Tmax
+bluehill$TMIN=NA
+bluehill$TMAX=NA
 
 #combine
-clim= rbind( climax[,c("YEAR","MONTH","DAY","TMEAN","region")], moran[,c("YEAR","MONTH","DAY","TMEAN","region")], bluehill[,c("YEAR","MONTH","DAY","TMEAN","region")])
+clim= rbind( climax[,c("YEAR","MONTH","DAY","TMEAN","TMIN","TMAX","region")], moran[,c("YEAR","MONTH","DAY","TMEAN","TMIN","TMAX","region")], bluehill[,c("YEAR","MONTH","DAY","TMEAN","TMIN","TMAX","region")])
 
 #write out
 write.csv(clim,"WeatherStationData_Regions.csv")
