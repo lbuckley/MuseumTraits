@@ -27,6 +27,9 @@ library(ggmap)
 library(maps)
 library(mapdata)
 
+setwd(paste(mydir, "analysis\\", sep=""))
+source("spatial_functions_cleaned.R")
+
 #---------------------------
 #READ AND MANIPULATE DATA
 
@@ -353,7 +356,7 @@ fig2b=ggplot(data=abs.sub1, aes(x=J, y = Corr.Val, color=Year ))+geom_point(alph
 if(plast.mod["P"]<0.05) fig2b= fig2b + geom_abline( aes(slope=plast.mod["Estimate"],intercept=plast.mod["Intercept"]))
 
 #plasticity by temp
-fig2bt=ggplot(data=abs.sub1, aes(x=Tpupal, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Pupal Temperature (°C)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") 
+fig2bt=ggplot(data=abs.sub1, aes(x=Tpupal, y = Corr.Val, color=Year ))+geom_point(alpha=0.8) +theme_classic() + xlab("Pupal Temperature (°C)") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom") + theme(legend.key.width=unit(1,"cm"))
 #add trend
 if(plastt.mod["P"]<0.05) fig2bt= fig2bt + geom_abline( aes(slope=plastt.mod["Estimate"],intercept=plastt.mod["Intercept"]))
 
@@ -379,9 +382,10 @@ library(grid)
 library(cowplot)
 
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig2_Loveland.pdf", height=10, width=8)
+pdf("Fig2_Loveland.pdf", height=10, width=5)
 
-plot_grid(fig2a, blank, fig2b,fig2bt, fig2c,blank, fig2d, fig2dt, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
+plot_grid(fig2a,fig2bt, fig2c, fig2dt, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
+#plot_grid(fig2a, blank, fig2b,fig2bt, fig2c,blank, fig2d, fig2dt, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
 
 dev.off()
 
@@ -421,6 +425,8 @@ plastt.mod1.pre= boot.sar.lm(y=areg.pre$Corr.Val,x=areg.pre$Tpupal,lon=areg.pre$
 areg= subset(areg, areg$time.per=="post 1980")
 #match IDs
 match1= match(areg$ID, absM.all$ID)
+
+#mod2= lm(Corr.Val~Tpupal*Year, data=areg)
 
 plast.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$doy,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
 plastt.mod1= boot.sar.lm(y=areg$Corr.Val,x=areg$Tpupal,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
@@ -628,7 +634,7 @@ absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
 
 #Phenology 
 fig3a<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Year ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="bottom")+ theme(legend.key.width=unit(1,"cm"))
+  xlab("Developmental Temperature (°C)") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = topo.colors(5))+ theme(legend.position="none")+ theme(legend.key.width=unit(1,"cm"))
 #add trendlines
 fig3a= fig3a+
   geom_abline(aes(slope=phen.slope,intercept=phen.int))+
@@ -680,7 +686,7 @@ fig3c<- ggplot(data=absM.post, aes(x=Year, y = Corr.Val, color=doy162to202))+geo
 setwd(paste(mydir, "figures\\", sep=""))
 pdf("Fig3_Regions.pdf", height=10, width=8)
 
-plot_grid(fig3a, fig3b, fig3c, fig3d, align = "v", nrow = 4, rel_heights = c(1,2.2,1,1.4))
+plot_grid(fig3a, fig3b.temp, fig3c, fig3dt, align = "v", nrow = 4, rel_heights = c(1,2.2,1,1.4))
 
 dev.off()
 
