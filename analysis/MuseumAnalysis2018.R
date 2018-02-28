@@ -912,4 +912,101 @@ areg$grey= 1- (areg$mean_Standard- areg$min_Standard)/(255- areg$min_Standard)
 ggplot(data=areg, aes(x=Year, y = grey))+geom_point()+geom_smooth(method="lm")
 ggplot(data=areg, aes(x=Year, y = Corr.Val))+geom_point()+geom_smooth(method="lm")
 
+###################################################
+
+areg= subset(absM.all, absM.all$region==1)
+
+
+#Figure 2: historical changes
+
+#find unique
+absM.all$RegYrDoy= paste(absM.all$region, absM.all$Year, absM.all$doy, sep="" )
+dups= duplicated(absM.all$RegYrDoy)
+abs.t<- absM.all[which(dups==FALSE),]
+
+#Tdev 
+fig2a<- ggplot(data=abs.t, aes(x=Year, y = doy162to202))+geom_point(alpha=0.8) +theme_classic()+
+  ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")
+#add trendlines
+fig2a= fig2a+
+  #geom_abline(aes(slope=phen.slope,intercept=phen.int))+
+  facet_wrap(~region.lab) 
+
+#Phenology
+fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.position="none")+ theme(legend.key.width=unit(1,"cm"))
+#add trendlines
+fig2b= fig2b+
+  #geom_abline(aes(slope=phen.slope,intercept=phen.int))+
+  facet_wrap(~region.lab)
+#+ scale_color_gradientn(colours = topo.colors(5))
+
+#melanism
+#by year
+fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")
+
+#add trendlines
+fig2c= fig2c+
+  #geom_abline(aes(slope=year.slope,intercept=year.int))+
+  facet_wrap(~region.lab)
+
+#---------
+setwd(paste(mydir, "figures\\", sep=""))
+pdf("Fig2_hist.pdf", height=10, width=8)
+
+plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1.4))
+
+dev.off()
+
+
+#---------------------
+#surface plots
+library(akima)
+
+for(reg in 1:3){
+
+  areg= subset(absM.all, absM.all$region==reg)
+  
+#phen ~Tdev*year
+s=interp(x=areg$doy162to202,y=areg$Year,z=areg$doy, duplicate="mean", nx=20, ny=30)
+
+gdat <- interp2xyz(s, data.frame=TRUE)
+
+plot.pty= ggplot(gdat) + 
+  aes(x = x, y = y, z = z, fill = z) + 
+  geom_tile() + 
+  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)") +
+  theme_bw(base_size=16)+xlab("developmental temperature")+ylab("year")+theme(legend.position="bottom")
+
+#mel ~doy*year
+s=interp(x=areg$doy,y=areg$Year,z=areg$Corr.Val, duplicate="mean", nx=20, ny=30)
+
+gdat <- interp2xyz(s, data.frame=TRUE)
+
+plot.mpy= ggplot(gdat) + 
+  aes(x = x, y = y, z = z, fill = z) + 
+  geom_tile() + 
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") +
+  theme_bw(base_size=16)+xlab("phenology (doy)")+ylab("year")+theme(legend.position="bottom")
+
+#mel ~Tpup*year
+s=interp(x=areg$Tpupal,y=areg$Year,z=areg$Corr.Val, duplicate="mean", nx=20, ny=30)
+
+gdat <- interp2xyz(s, data.frame=TRUE)
+
+plot.mty= ggplot(gdat) + 
+  aes(x = x, y = y, z = z, fill = z) + 
+  geom_tile() + 
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") +
+  theme_bw(base_size=16)+xlab("pupal Temperature (°C)")+ylab("year")+theme(legend.position="bottom")
+
+#-----------------
+#Assign region plots
+if(reg==1){plot.pty1=plot.pty; plot.mpy1=plot.mpy; plot.mty1=plot.mty}
+if(reg==2){plot.pty2=plot.pty; plot.mpy2=plot.mpy; plot.mty2=plot.mty}
+if(reg==3){plot.pty3=plot.pty; plot.mpy3=plot.mpy; plot.mty3=plot.mty}
+
+}
+#end region loop
+
 
