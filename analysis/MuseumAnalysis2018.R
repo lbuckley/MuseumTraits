@@ -215,6 +215,11 @@ absM.all$YrSite= paste(absM.all$Year, absM.all$siteID, sep="")
 Nruns= 50 #50 #number of bootstrapp runs                          
 Nsamp= 15 #max sample size of butterflies per site per year
 
+#make region label
+absM.all$region.lab<-"Region 1"
+absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
+absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
+
 #=======================
 # Result 1. Maps and overview plots
 #MAKE INITIAL MAPS
@@ -304,9 +309,7 @@ print(elev.plot,vp=subvp.e)
 print(clim.plot,vp=subvp.t)
 dev.off()
 
-#==================================
-#Result 3.	Shift in phenology as a function of temperature (Jun, July average; test others)
-#Result 4.	Shift in phenotype as a function of phenology
+#============================================================
 
 #LOVELAND PASS
 #"EisenhowerTunnel"/ Loveland pass ANALYSIS
@@ -914,11 +917,51 @@ ggplot(data=areg, aes(x=Year, y = Corr.Val))+geom_point()+geom_smooth(method="lm
 
 ###################################################
 
-areg= subset(absM.all, absM.all$region==1)
-
-
 #Figure 2: historical changes
 
+#columns for slopes and intercepts
+absM.all$tyear.int= NA
+absM.all$tyear.slope= NA
+absM.all$pyear.int= NA
+absM.all$pyear.slope= NA
+absM.all$myear.int= NA
+absM.all$myear.slope= NA
+
+#STATS
+for(reg in 1:3){
+  areg= subset(absM.all, absM.all$region==reg)
+  areg$siteID= match(areg$NewLocation, sites)
+  areg$YrSite= paste(areg$Year, areg$siteID, sep="")
+  areg= na.omit(areg[,c("ID","Corr.Val","doy","Tpupal","Year", "lon","lat","NewLocation","doy162to202","YrSite","time.per")])
+  
+  #match IDs
+  match1= match(areg$ID, absM.all$ID)
+  
+  tyear.mod= boot.sar.lm(y=areg$doy162to202,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+ 
+  pyear.mod= boot.sar.lm(y=areg$doy,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+  
+  myear.mod= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+  
+  #save models
+  if(reg==1){tyear.mod1=tyear.mod; pyear.mod1=pyear.mod; myear.mod1=myear.mod}
+  if(reg==2){tyear.mod2=tyear.mod; pyear.mod2=pyear.mod; myear.mod2=myear.mod}
+  if(reg==3){tyear.mod3=tyear.mod; pyear.mod3=pyear.mod; myear.mod3=myear.mod}
+  
+  #save slope and intercept
+  inds= which(absM.all$region==reg)
+  
+  if(tyear.mod["P"]<0.05) absM.all[inds,"tyear.int"]= tyear.mod["Intercept"]
+  if(tyear.mod["P"]<0.05) absM.all[inds,"tyear.slope"]= tyear.mod["Estimate"]
+  
+  if(pyear.mod["P"]<0.05) absM.all[inds,"pyear.int"]= pyear.mod["Intercept"]
+  if(pyear.mod["P"]<0.05) absM.all[inds,"pyear.slope"]= pyear.mod["Estimate"]
+  
+  if(myear.mod["P"]<0.05) absM.all[inds,"myear.int"]= myear.mod["Intercept"]
+  if(myear.mod["P"]<0.05) absM.all[inds,"myear.slope"]= myear.mod["Estimate"]
+}
+
+#--------------
 #find unique
 absM.all$RegYrDoy= paste(absM.all$region, absM.all$Year, absM.all$doy, sep="" )
 dups= duplicated(absM.all$RegYrDoy)
@@ -929,7 +972,7 @@ fig2a<- ggplot(data=abs.t, aes(x=Year, y = doy162to202))+geom_point(alpha=0.8) +
   ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")
 #add trendlines
 fig2a= fig2a+
-  #geom_abline(aes(slope=phen.slope,intercept=phen.int))+
+ # geom_abline(aes(slope=tyear.slope,intercept=tyear.int))+
   facet_wrap(~region.lab) 
 
 #Phenology
@@ -937,7 +980,7 @@ fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=doy162to202 ))+geom_poi
   xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.position="none")+ theme(legend.key.width=unit(1,"cm"))
 #add trendlines
 fig2b= fig2b+
-  #geom_abline(aes(slope=phen.slope,intercept=phen.int))+
+  geom_abline(aes(slope=pyear.slope,intercept=pyear.int))+
   facet_wrap(~region.lab)
 #+ scale_color_gradientn(colours = topo.colors(5))
 
@@ -947,7 +990,7 @@ fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom
 
 #add trendlines
 fig2c= fig2c+
-  #geom_abline(aes(slope=year.slope,intercept=year.int))+
+  geom_abline(aes(slope=myear.slope,intercept=myear.int))+
   facet_wrap(~region.lab)
 
 #---------
@@ -958,25 +1001,39 @@ plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1.4))
 
 dev.off()
 
-
 #---------------------
 #surface plots
 library(akima)
+library(cowplot)
 
+#change Temp NaN to NA
+absM.all$Tpupal[is.nan(absM.all$Tpupal)]<-NA
+absM.all$doy162to202[is.nan(absM.all$doy162to202)]<-NA
+
+#set limits
+phen.lims= range(absM.all$doy)
+Tpupal.lims= range(na.omit(absM.all$Tpupal))
+Tdev.lims= range(na.omit(absM.all$doy162to202))
+mel.lims= range(absM.all$Corr.Val)
+year.lims= range(absM.all$Year)
+  
 for(reg in 1:3){
 
   areg= subset(absM.all, absM.all$region==reg)
   
 #phen ~Tdev*year
-s=interp(x=areg$doy162to202,y=areg$Year,z=areg$doy, duplicate="mean", nx=20, ny=30)
+  keep= which(!is.na(areg$doy162to202))
+s=interp(x=areg$doy162to202[keep],y=areg$Year[keep],z=areg$doy[keep], duplicate="mean", nx=20, ny=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.pty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)") +
-  theme_bw(base_size=16)+xlab("developmental temperature")+ylab("year")+theme(legend.position="bottom")
+  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)", limits=phen.lims) +
+  theme_bw(base_size=16)+xlab("developmental temperature")+ylab("year")+theme(legend.position="right")+xlim(Tdev.lims)+ylim(year.lims)
+
+if(reg!=3) plot.pty= plot.pty +theme(legend.position="none")
 
 #mel ~doy*year
 s=interp(x=areg$doy,y=areg$Year,z=areg$Corr.Val, duplicate="mean", nx=20, ny=30)
@@ -986,19 +1043,25 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 plot.mpy= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") +
-  theme_bw(base_size=16)+xlab("phenology (doy)")+ylab("year")+theme(legend.position="bottom")
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism", limits=mel.lims) +
+  theme_bw(base_size=16)+xlab("phenology (doy)")+ylab("year")+theme(legend.position="right")+xlim(phen.lims)+ylim(year.lims)
+
+if(reg!=3) plot.mpy= plot.mpy +theme(legend.position="none")
 
 #mel ~Tpup*year
-s=interp(x=areg$Tpupal,y=areg$Year,z=areg$Corr.Val, duplicate="mean", nx=20, ny=30)
+#drop NAs for pupal temperature
+keep= which(!is.na(areg$Tpupal))
+s=interp(x=areg$Tpupal[keep],y=areg$Year[keep],z=areg$Corr.Val[keep], duplicate="mean", nx=20, ny=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.mty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") +
-  theme_bw(base_size=16)+xlab("pupal Temperature (°C)")+ylab("year")+theme(legend.position="bottom")
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism", limits=mel.lims) +
+  theme_bw(base_size=16)+xlab("pupal Temperature (°C)")+ylab("year")+theme(legend.position="right")+xlim(Tpupal.lims)+ylim(year.lims)
+
+if(reg!=3) plot.mty= plot.mty +theme(legend.position="none")
 
 #-----------------
 #Assign region plots
@@ -1008,5 +1071,66 @@ if(reg==3){plot.pty3=plot.pty; plot.mpy3=plot.mpy; plot.mty3=plot.mty}
 
 }
 #end region loop
+
+#------------
+setwd(paste(mydir, "figures\\", sep=""))
+pdf("Fig3_corr.pdf", height=10, width=10)
+
+plot_grid(plot.pty1, plot.pty2, plot.pty3, plot.mpy1, plot.mpy2, plot.mpy3, plot.mty1, plot.mty2, plot.mty3, align = "v", nrow = 3, rel_widths = c(1,1,1.8))
+
+dev.off()
+--------------
+#stats for correlations
+  
+for( reg in 1:3 ){
+  areg= subset(absM.all, absM.all$region==reg)
+  
+  #phen ~Tdev*year
+pty.mod= boot.sar.mult(y=areg$doy,x1=areg$doy162to202,x2=areg$Year,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)
+    
+  #mel ~doy*year
+mpy.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$doy,x2=areg$Year,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)  
+  
+  #mel ~Tpup*year
+mty.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$Tpupal,x2=areg$Year,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)  
+
+#mel ~Tpup*doy
+mtp.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$Tpupal,x2=areg$doy,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)  
+
+#Assign stats
+if(reg==1){pty.mod1=pty.mod; mpy.mod1=mpy.mod; mty.mod1=mty.mod; mtp.mod1=mtp.mod}
+if(reg==2){pty.mod2=pty.mod; mpy.mod2=mpy.mod; mty.mod2=mty.mod; mtp.mod2=mtp.mod}
+if(reg==3){pty.mod3=pty.mod; mpy.mod3=mpy.mod; mty.mod3=mty.mod; mtp.mod3=mtp.mod}
+
+}# loop regions
+
+#======================
+#Residual plots
+
+absM.all$Corr.Resid= NA
+
+for(reg in 1:3){
+ if(reg==1) mtp.mod<- mtp.mod1
+ if(reg==2) mtp.mod<- mtp.mod2
+ if(reg==3) mtp.mod<- mtp.mod3
+  
+ inds= which(absM.all$region==reg)
+ absM.all$Corr.Resid[inds]<- absM.all$Corr.Val[inds]-(mtp.mod["Estimate.x1"]*absM.all$Tpupal[inds] +mtp.mod["Estimate.x2"]*absM.all$doy[inds] +mtp.mod["Estimate.x1:x2"]*absM.all$Tpupal[inds]*absM.all$doy[inds] +mtp.mod["Intercept"])
+ }
+
+#----------------
+fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(gray ~Tpupal*year)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+#add trendlines
+fig4= fig4+
+  #geom_abline(aes(slope=resid.slope,intercept=resid.int))+
+  facet_wrap(~region.lab)
+
+#---------
+setwd(paste(mydir, "figures\\", sep=""))
+pdf("Fig4_resid.pdf", height=4, width=8)
+
+fig4
+
+dev.off()
 
 
