@@ -472,7 +472,7 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 plot.pty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)", limits=phen.lims) +
+  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)") + ##, limits=phen.lims
   theme_bw(base_size=16)+xlab("developmental temperature")+ylab("year")+theme(legend.position="right")+xlim(Tdev.lims)+ylim(year.lims)
 
 if(reg!=3) plot.pty= plot.pty +theme(legend.position="none")
@@ -485,7 +485,7 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 plot.mpy= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism", limits=mel.lims) +
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
   theme_bw(base_size=16)+xlab("phenology (doy)")+ylab("year")+theme(legend.position="right")+xlim(phen.lims)+ylim(year.lims)
 
 if(reg!=3) plot.mpy= plot.mpy +theme(legend.position="none")
@@ -500,7 +500,7 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 plot.mty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism", limits=mel.lims) +
+  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
   theme_bw(base_size=16)+xlab("pupal Temperature (°C)")+ylab("year")+theme(legend.position="right")+xlim(Tpupal.lims)+ylim(year.lims)
 
 if(reg!=3) plot.mty= plot.mty +theme(legend.position="none")
@@ -516,7 +516,7 @@ if(reg==3){plot.pty3=plot.pty; plot.mpy3=plot.mpy; plot.mty3=plot.mty}
 
 #------------
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig3_corr.pdf", height=10, width=10)
+pdf("Fig3_corr_diffscales.pdf", height=10, width=10)
 
 plot_grid(plot.pty1, plot.pty2, plot.pty3, plot.mpy1, plot.mpy2, plot.mpy3, plot.mty1, plot.mty2, plot.mty3, align = "v", nrow = 3, rel_widths = c(1,1,1.8))
 
@@ -553,10 +553,6 @@ if(reg==2){pty.mod2=pty.mod; mpy.mod2=mpy.mod; mty.mod2=mty.mod; mtp.mod2=mtp.mo
 if(reg==3){pty.mod3=pty.mod; mpy.mod3=mpy.mod; mty.mod3=mty.mod; mtp.mod3=mtp.mod}
 
 }# loop regions
-
-#----
-corrs= rbind(pty.mod1, mpy.mod1,mty.mod1, mtp.mod1,pty.mod2, mpy.mod2,mty.mod2, mtp.mod2,pty.mod3, mpy.mod3,mty.mod3, mtp.mod3)
-write.csv(corrs, "CorrelationStats.csv")
 
 #======================
 #Residual plots
@@ -646,10 +642,6 @@ for(reg in 1:3){
   if(fyear.mod["P"]<0.05) absM.all[inds,"fyear.slope"]= fyear.mod["Estimate"]
 }
 
-#---
-syear.mod3
-fyear.mod3
-
 #--------------
 #thorax
 #by year
@@ -677,6 +669,15 @@ pdf("Figs2_sizefur.pdf", height=8, width=8)
 plot_grid(figs2a, figs2b, align = "v", nrow = 2, rel_heights = c(1,1.4))
 
 dev.off()
+
+#----
+#write out stats
+hist= rbind(tyear.mod1, tyear.mod2,tyear.mod3,pyear.mod1, pyear.mod2,pyear.mod3,myear.mod1, myear.mod2,myear.mod3,ryear.mod1, ryear.mod2,ryear.mod3,syear.mod1, syear.mod2,syear.mod3,fyear.mod1, fyear.mod2,fyear.mod3)
+write.csv(hist, "HistStats.csv")
+
+corrs= rbind(pty.mod1, pty.mod2,pty.mod3,mpy.mod1,mpy.mod2,mpy.mod3, mty.mod1, mty.mod2,mty.mod3, mtp.mod1,mtp.mod2,mtp.mod3)
+write.csv(corrs, "CorrelationStats.csv")
+
 
 ###############################################
 #check data
