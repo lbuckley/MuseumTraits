@@ -473,7 +473,10 @@ plot.pty= ggplot(gdat) +
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
   scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)") + ##, limits=phen.lims
-  theme_bw(base_size=16)+xlab("developmental temperature")+ylab("year")+theme(legend.position="right")+xlim(Tdev.lims)+ylim(year.lims)
+  theme_bw(base_size=16)+theme(legend.position="right")+xlim(Tdev.lims)+ylim(year.lims)
+
+if(reg==2) plot.pty= plot.pty+xlab("developmental temperature")+ylab("")
+if(reg!=2) plot.pty= plot.pty+xlab("")+ylab("")
 
 if(reg!=3) plot.pty= plot.pty +theme(legend.position="none")
 
@@ -486,7 +489,11 @@ plot.mpy= ggplot(gdat) +
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
   scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
-  theme_bw(base_size=16)+xlab("phenology (doy)")+ylab("year")+theme(legend.position="right")+xlim(phen.lims)+ylim(year.lims)
+  theme_bw(base_size=16)+theme(legend.position="right")+xlim(phen.lims)+ylim(year.lims)
+
+if(reg==1) plot.mpy= plot.mpy+xlab("")+ylab("year")
+if(reg==2) plot.mpy= plot.mpy+xlab("phenology (doy)")+ylab("")
+if(reg==3) plot.mpy= plot.mpy+xlab("")+ylab("")
 
 if(reg!=3) plot.mpy= plot.mpy +theme(legend.position="none")
 
@@ -501,7 +508,10 @@ plot.mty= ggplot(gdat) +
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
   scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
-  theme_bw(base_size=16)+xlab("pupal Temperature (°C)")+ylab("year")+theme(legend.position="right")+xlim(Tpupal.lims)+ylim(year.lims)
+  theme_bw(base_size=16)+theme(legend.position="right")+xlim(Tpupal.lims)+ylim(year.lims)
+
+if(reg==2) plot.mty= plot.mty+xlab("pupal Temperature (°C)")+ylab("")
+if(reg!=2) plot.mty= plot.mty +xlab("")+ylab("")
 
 if(reg!=3) plot.mty= plot.mty +theme(legend.position="none")
 
