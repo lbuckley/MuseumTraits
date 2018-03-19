@@ -237,14 +237,14 @@ map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE) #
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = topo.colors(5))+ theme(legend.key.width=unit(1,"cm"))
+aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = heat.colors(5))+ theme(legend.key.width=unit(1,"cm"))
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
-elev.plot<-ggplot(data=absM.all, aes(x=lat, y = estElevation))+geom_point(alpha=0.8) +theme_classic()+
-  labs(x = "Latitude (°)",y="Elevation (m)")
+elev.plot<-ggplot(data=absM.all, aes(x=lat, y = estElevation, color=region.lab))+geom_point(alpha=0.8) +theme_classic()+
+  labs(x = "Latitude (°)",y="Elevation (m)")+ theme(legend.position="none")
   # , color=doy #geom_smooth(method="lm")+
 
 #-------------------
@@ -266,7 +266,7 @@ clim.dev$region.f=clim.dev$Group.1
 clim.dev= subset(clim.dev, YEAR>=1953 & YEAR<=2013)
 
 #time series for three regions
-clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line() +theme_classic()+geom_smooth(method="lm",se=FALSE)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
+clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=1) +theme_classic()+geom_smooth(method="lm",se=FALSE,size=0.5)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
 
 #find years with samples
 clim$region= as.factor(clim$region)
@@ -308,7 +308,7 @@ aper1.map
 print(elev.plot,vp=subvp.e)
 print(clim.plot,vp=subvp.t)
 dev.off()
-
+ 
 #============================================================
 
 #LOVELAND PASS
@@ -428,7 +428,7 @@ fig2b= fig2b+
 
 #melanism
 #by year
-fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")
+fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Predicted Developmental Temperature (°C)")
 
 #add trendlines
 fig2c= fig2c+
@@ -459,59 +459,89 @@ Tdev.lims= range(na.omit(absM.all$doy162to202))
 mel.lims= range(absM.all$Corr.Val)
 year.lims= range(absM.all$Year)
   
+#define breaks
+phen.breaks=quantile(absM.all$doy, probs = seq(0, 1, 0.1) )
+mel.breaks=quantile(absM.all$Corr.Val, probs = seq(0, 1, 0.1) )
+mel.round= round(mel.breaks,2)
+
+#define labels
+phen.labs= c(phen.breaks[1],"","","","",phen.breaks[5],"","","","",phen.breaks[11])
+mel.labs= c(mel.round[1],"","","","",mel.round[5],"","","","",mel.round[11])
+
 for(reg in 1:3){
 
   areg= subset(absM.all, absM.all$region==reg)
   
 #phen ~Tdev*year
   keep= which(!is.na(areg$doy162to202))
-s=interp(x=areg$doy162to202[keep],y=areg$Year[keep],z=areg$doy[keep], duplicate="mean", nx=20, ny=30)
+s=interp(y=areg$doy162to202[keep],x=areg$Year[keep],z=areg$doy[keep], duplicate="mean", ny=20, nx=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.pty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)") + ##, limits=phen.lims
-  theme_bw(base_size=16)+theme(legend.position="right")+xlim(Tdev.lims)+ylim(year.lims)
+  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=phen.breaks[5], breaks=phen.breaks, na.value="white", name="phenology (doy)", labels=phen.labs, limits=phen.lims)+
+  theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)
+#scale_fill_gradientn(colours=fill.colors, 
+ #                    trans = 'norm', 
+#                     breaks = quantile(dat$z, probs = c(0, 0.25, 1))
+#)
+  
+  # scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)", limits=phen.lims) + ##, limits=phen.lims, 
+ 
+# library(scales)
+# norm_trans <- function(){
+#   trans_new('norm', function(x) pnorm(x), function(x) qnorm(x))
+# }
+# 
+# plot.pty= ggplot(gdat) + 
+#   aes(x = x, y = y, z = z, fill = z) + 
+#   geom_tile() + 
+#  # scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=phen.breaks[5], na.value="white", name="phenology (doy)", trans='norm', limits=phen.lims)+
+#   theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)+
+# scale_fill_gradientn(colours=heat.colors(10), 
+#                      trans = probability_trans(distribution = 'norm'))
+#-------------
 
-if(reg==2) plot.pty= plot.pty+xlab("developmental temperature")+ylab("")
-if(reg!=2) plot.pty= plot.pty+xlab("")+ylab("")
+
+if(reg==1) plot.pty= plot.pty+ylab("Tdevelopment (°C)")+xlab("")
+if(reg!=1) plot.pty= plot.pty+xlab("")+ylab("")
 
 if(reg!=3) plot.pty= plot.pty +theme(legend.position="none")
 
 #mel ~doy*year
-s=interp(x=areg$doy,y=areg$Year,z=areg$Corr.Val, duplicate="mean", nx=20, ny=30)
+s=interp(y=areg$doy,x=areg$Year,z=areg$Corr.Val, duplicate="mean", ny=20, nx=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.mpy= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
-  theme_bw(base_size=16)+theme(legend.position="right")+xlim(phen.lims)+ylim(year.lims)
+  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=mel.breaks[5], breaks=mel.breaks, na.value="white", name="Wing melanism", labels=mel.labs, limits=mel.lims)+
+  theme_classic(base_size=16)+theme(legend.position="right")+ylim(phen.lims)+xlim(year.lims)
 
-if(reg==1) plot.mpy= plot.mpy+xlab("")+ylab("year")
-if(reg==2) plot.mpy= plot.mpy+xlab("phenology (doy)")+ylab("")
-if(reg==3) plot.mpy= plot.mpy+xlab("")+ylab("")
+if(reg==1) plot.mpy= plot.mpy+ylab("Phenology (doy)")+xlab("")
+if(reg!=1) plot.mpy= plot.mpy+xlab("")+ylab("")
 
 if(reg!=3) plot.mpy= plot.mpy +theme(legend.position="none")
 
 #mel ~Tpup*year
 #drop NAs for pupal temperature
 keep= which(!is.na(areg$Tpupal))
-s=interp(x=areg$Tpupal[keep],y=areg$Year[keep],z=areg$Corr.Val[keep], duplicate="mean", nx=20, ny=30)
+s=interp(y=areg$Tpupal[keep],x=areg$Year[keep],z=areg$Corr.Val[keep], duplicate="mean", ny=20, nx=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.mty= ggplot(gdat) + 
   aes(x = x, y = y, z = z, fill = z) + 
   geom_tile() + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="Wing melanism") + ##, limits=mel.lims
-  theme_bw(base_size=16)+theme(legend.position="right")+xlim(Tpupal.lims)+ylim(year.lims)
+  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=mel.breaks[5], breaks=mel.breaks, na.value="white", name="Wing melanism", labels=mel.labs, limits=mel.lims)+
+  theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tpupal.lims)+xlim(year.lims)
 
-if(reg==2) plot.mty= plot.mty+xlab("pupal Temperature (°C)")+ylab("")
-if(reg!=2) plot.mty= plot.mty +xlab("")+ylab("")
+if(reg==1) plot.mty= plot.mty+ylab("Tpupal (°C)")+xlab("")
+if(reg==2) plot.mty= plot.mty +xlab("year")+ylab("")
+if(reg==3) plot.mty= plot.mty +xlab("")+ylab("")
 
 if(reg!=3) plot.mty= plot.mty +theme(legend.position="none")
 
