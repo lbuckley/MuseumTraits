@@ -266,7 +266,7 @@ clim.dev$region.f=clim.dev$Group.1
 clim.dev= subset(clim.dev, YEAR>=1953 & YEAR<=2013)
 
 #time series for three regions
-clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=1) +theme_classic()+geom_smooth(method="lm",se=FALSE,size=0.5)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
+clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=0.5) +theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
 
 #find years with samples
 clim$region= as.factor(clim$region)
@@ -447,6 +447,7 @@ dev.off()
 #surface plots
 library(akima)
 library(cowplot)
+library(scales)
 
 #change Temp NaN to NA
 absM.all$Tpupal[is.nan(absM.all$Tpupal)]<-NA
@@ -460,13 +461,13 @@ mel.lims= range(absM.all$Corr.Val)
 year.lims= range(absM.all$Year)
   
 #define breaks
-phen.breaks=quantile(absM.all$doy, probs = seq(0, 1, 0.1) )
-mel.breaks=quantile(absM.all$Corr.Val, probs = seq(0, 1, 0.1) )
+phen.breaks=quantile(absM.all$doy, probs = seq(0, 1, length.out=7) )
+mel.breaks=quantile(absM.all$Corr.Val, probs = seq(0, 1, length.out=7) )
 mel.round= round(mel.breaks,2)
 
-#define labels
-phen.labs= c(phen.breaks[1],"","","","",phen.breaks[5],"","","","",phen.breaks[11])
-mel.labs= c(mel.round[1],"","","","",mel.round[5],"","","","",mel.round[11])
+# #define labels
+# phen.labs= c(phen.breaks[1],"","","","",phen.breaks[5],"","","","",phen.breaks[11])
+# mel.labs= c(mel.round[1],"","","","",mel.round[5],"","","","",mel.round[11])
 
 for(reg in 1:3){
 
@@ -478,32 +479,24 @@ s=interp(y=areg$doy162to202[keep],x=areg$Year[keep],z=areg$doy[keep], duplicate=
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
-plot.pty= ggplot(gdat) + 
-  aes(x = x, y = y, z = z, fill = z) + 
-  geom_tile() + 
-  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=phen.breaks[5], breaks=phen.breaks, na.value="white", name="phenology (doy)", labels=phen.labs, limits=phen.lims)+
-  theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)
-#scale_fill_gradientn(colours=fill.colors, 
- #                    trans = 'norm', 
-#                     breaks = quantile(dat$z, probs = c(0, 0.25, 1))
-#)
-  
-  # scale_fill_distiller(palette="Spectral", na.value="white", name="phenology (doy)", limits=phen.lims) + ##, limits=phen.lims, 
- 
-# library(scales)
-# norm_trans <- function(){
-#   trans_new('norm', function(x) pnorm(x), function(x) qnorm(x))
-# }
-# 
 # plot.pty= ggplot(gdat) + 
 #   aes(x = x, y = y, z = z, fill = z) + 
 #   geom_tile() + 
-#  # scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=phen.breaks[5], na.value="white", name="phenology (doy)", trans='norm', limits=phen.lims)+
-#   theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)+
-# scale_fill_gradientn(colours=heat.colors(10), 
-#                      trans = probability_trans(distribution = 'norm'))
-#-------------
+#   scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=phen.breaks[5], breaks=phen.breaks, na.value="white", name="phenology (doy)", labels=phen.labs, limits=phen.lims)+
+#   theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)
 
+#see https://stackoverflow.com/questions/38874741/transform-color-scale-to-probability-transformed-color-distribution-with-scale-f
+#https://stackoverflow.com/questions/10981324/ggplot2-heatmap-with-colors-for-ranged-values
+
+
+plot.pty=ggplot(data =  gdat, aes(x = x, y = y)) + 
+  geom_tile(aes(fill = z)) +
+  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
+                                 "cornsilk",
+                                 "lightgreen", "green", "darkgreen"),
+                       values=rescale(phen.breaks),
+                       guide="colorbar", na.value="white",name="phenology (doy)", limits=phen.lims)+
+theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)
 
 if(reg==1) plot.pty= plot.pty+ylab("Tdevelopment (°C)")+xlab("")
 if(reg!=1) plot.pty= plot.pty+xlab("")+ylab("")
@@ -515,10 +508,13 @@ s=interp(y=areg$doy,x=areg$Year,z=areg$Corr.Val, duplicate="mean", ny=20, nx=30)
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
-plot.mpy= ggplot(gdat) + 
-  aes(x = x, y = y, z = z, fill = z) + 
-  geom_tile() + 
-  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=mel.breaks[5], breaks=mel.breaks, na.value="white", name="Wing melanism", labels=mel.labs, limits=mel.lims)+
+plot.mpy=ggplot(data =  gdat, aes(x = x, y = y)) + 
+  geom_tile(aes(fill = z)) +
+  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
+                                 "cornsilk",
+                                 "lightgreen", "green", "darkgreen"),
+                       values=rescale(mel.breaks),
+                       guide="colorbar", na.value="white",name="Wing melanism", limits=mel.lims)+
   theme_classic(base_size=16)+theme(legend.position="right")+ylim(phen.lims)+xlim(year.lims)
 
 if(reg==1) plot.mpy= plot.mpy+ylab("Phenology (doy)")+xlab("")
@@ -533,10 +529,13 @@ s=interp(y=areg$Tpupal[keep],x=areg$Year[keep],z=areg$Corr.Val[keep], duplicate=
 
 gdat <- interp2xyz(s, data.frame=TRUE)
 
-plot.mty= ggplot(gdat) + 
-  aes(x = x, y = y, z = z, fill = z) + 
-  geom_tile() + 
-  scale_fill_gradient2(low="blue", high="red",mid="cornsilk",midpoint=mel.breaks[5], breaks=mel.breaks, na.value="white", name="Wing melanism", labels=mel.labs, limits=mel.lims)+
+plot.mty=ggplot(data =  gdat, aes(x = x, y = y)) + 
+  geom_tile(aes(fill = z)) +
+  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
+                                 "cornsilk",
+                                 "lightgreen", "green", "darkgreen"),
+                       values=rescale(mel.breaks),
+                       guide="colorbar", na.value="white",name="Wing melanism", limits=mel.lims)+
   theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tpupal.lims)+xlim(year.lims)
 
 if(reg==1) plot.mty= plot.mty+ylab("Tpupal (°C)")+xlab("")
@@ -556,7 +555,7 @@ if(reg==3){plot.pty3=plot.pty; plot.mpy3=plot.mpy; plot.mty3=plot.mty}
 
 #------------
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig3_corr_diffscales.pdf", height=10, width=10)
+pdf("Fig3.pdf", height=10, width=10)
 
 plot_grid(plot.pty1, plot.pty2, plot.pty3, plot.mpy1, plot.mpy2, plot.mpy3, plot.mty1, plot.mty2, plot.mty3, align = "v", nrow = 3, rel_widths = c(1,1,1.8))
 
