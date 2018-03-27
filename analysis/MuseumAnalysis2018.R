@@ -448,6 +448,7 @@ dev.off()
 library(akima)
 library(cowplot)
 library(scales)
+library(RColorBrewer)
 
 #change Temp NaN to NA
 absM.all$Tpupal[is.nan(absM.all$Tpupal)]<-NA
@@ -491,12 +492,12 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.pty=ggplot(data =  gdat, aes(x = x, y = y)) + 
   geom_tile(aes(fill = z)) +
-  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
-                                 "cornsilk",
-                                 "lightgreen", "green", "darkgreen"),
+  scale_fill_gradientn(colours=brewer.pal(8, "RdYlBu"),
                        values=rescale(phen.breaks),
-                       guide="colorbar", na.value="white",name="phenology (doy)", limits=phen.lims)+
+                       guide="colorbar", na.value="white",name="Phenology (doy)", limits=phen.lims)+
 theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tdev.lims)+xlim(year.lims)
+
+#c("darkblue", "blue", "lightblue", "cornsilk","lightgreen", "green", "darkgreen")
 
 if(reg==1) plot.pty= plot.pty+ylab("Tdevelopment (°C)")+xlab("")
 if(reg!=1) plot.pty= plot.pty+xlab("")+ylab("")
@@ -510,11 +511,9 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.mpy=ggplot(data =  gdat, aes(x = x, y = y)) + 
   geom_tile(aes(fill = z)) +
-  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
-                                 "cornsilk",
-                                 "lightgreen", "green", "darkgreen"),
+  scale_fill_gradientn(colours=brewer.pal(8, "RdYlBu"),
                        values=rescale(mel.breaks),
-                       guide="colorbar", na.value="white",name="Wing melanism", limits=mel.lims)+
+                       guide="colorbar", na.value="white",name="Wing melanism\n(gray level)", limits=mel.lims)+
   theme_classic(base_size=16)+theme(legend.position="right")+ylim(phen.lims)+xlim(year.lims)
 
 if(reg==1) plot.mpy= plot.mpy+ylab("Phenology (doy)")+xlab("")
@@ -531,11 +530,9 @@ gdat <- interp2xyz(s, data.frame=TRUE)
 
 plot.mty=ggplot(data =  gdat, aes(x = x, y = y)) + 
   geom_tile(aes(fill = z)) +
-  scale_fill_gradientn(colours=c("darkblue", "blue", "lightblue", 
-                                 "cornsilk",
-                                 "lightgreen", "green", "darkgreen"),
+  scale_fill_gradientn(colours=brewer.pal(8, "RdYlBu"),
                        values=rescale(mel.breaks),
-                       guide="colorbar", na.value="white",name="Wing melanism", limits=mel.lims)+
+                       guide="colorbar", na.value="white",name="Wing melanism\n(gray level)", limits=mel.lims)+
   theme_classic(base_size=16)+theme(legend.position="right")+ylim(Tpupal.lims)+xlim(year.lims)
 
 if(reg==1) plot.mty= plot.mty+ylab("Tpupal (°C)")+xlab("")
@@ -584,7 +581,7 @@ mty.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$Tpupal,x2=areg$Year,lon=areg$lon,
 #mel ~Tpup*doy
 areg= na.omit(areg.a[,c("Corr.Val", "Tpupal", "doy", "lon", "lat", "YrSite")] )
 areg[,1:3]<-scale(areg[,1:3], center=TRUE, scale=TRUE)
-mtp.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$Tpupal,x2=areg$doy,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)  
+mtp.mod= boot.sar.mult(y=areg$Corr.Val,x1=areg$Tpupal,x2=areg$doy,lon=areg$lon,lat=areg$lat, sites=areg$YrSite, Nruns,Nsamp)   
 
 #Assign stats
 if(reg==1){pty.mod1=pty.mod; mpy.mod1=mpy.mod; mty.mod1=mty.mod; mtp.mod1=mtp.mod}
@@ -602,9 +599,14 @@ for(reg in 1:3){
  if(reg==1) mtp.mod<- mtp.mod1
  if(reg==2) mtp.mod<- mtp.mod2
  if(reg==3) mtp.mod<- mtp.mod3
-  
- inds= which(absM.all$region==reg)
- absM.all$Corr.Resid[inds]<- absM.all$Corr.Val[inds]-(mtp.mod["Estimate.x1"]*absM.all$Tpupal[inds] +mtp.mod["Estimate.x2"]*absM.all$doy[inds] +mtp.mod["Estimate.x1:x2"]*absM.all$Tpupal[inds]*absM.all$doy[inds] +mtp.mod["Intercept"])
+
+ #Scale
+ areg.a= subset(absM.all, absM.all$region==reg)
+ areg= na.omit(areg.a[,c("Corr.Val", "Tpupal", "doy", "lon", "lat", "YrSite", "ID")] )
+ areg[,1:3]<-scale(areg[,1:3], center=TRUE, scale=TRUE)
+   
+ inds= match(areg$ID, absM.all$ID)
+ absM.all$Corr.Resid[inds]<- areg$Corr.Val-(mtp.mod["Estimate.x1"]*areg$Tpupal +mtp.mod["Estimate.x2"]*areg$doy +mtp.mod["Estimate.x1:x2"]*areg$Tpupal*areg$doy +mtp.mod["Intercept"])
  
  #regression stats
  areg= subset(absM.all, absM.all$region==reg)
@@ -630,7 +632,7 @@ for(reg in 1:3){
  } #end region loop
 
 #----------------
-fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(Wing melanism) (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Developmental Temperature (°C)")
+fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(Wing melanism) (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Predicted Developmental Temperature (°C)")
 #add trendlines
 fig4= fig4+
   geom_abline(aes(slope=ryear.slope,intercept=ryear.int))+
