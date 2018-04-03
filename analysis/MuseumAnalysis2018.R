@@ -268,6 +268,17 @@ clim.dev= subset(clim.dev, YEAR>=1953 & YEAR<=2013)
 #time series for three regions
 clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=0.5) +theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
 
+#Extract Legend 
+g_legend<-function(a.gplot){ 
+  tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
+  legend <- tmp$grobs[[leg]] 
+  return(legend)} 
+
+leg <- g_legend(clim.plot) 
+
+clim.plot=clim.plot + theme(legend.position="none")
+
 #find years with samples
 clim$region= as.factor(clim$region)
 a.sub= subset(absM.all, absM.all$region==1)
