@@ -287,6 +287,17 @@ clim.devs= rbind(clim.dev1, clim.dev2, clim.dev3)
 #add dots for years with samples
 clim.plot= clim.plot+ geom_point(data=clim.devs, aes(x=YEAR, y = TMEAN, color=region.f))
 
+#Extract Legend 
+g_legend<-function(a.gplot){ 
+  tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
+  legend <- tmp$grobs[[leg]] 
+  return(legend)} 
+
+leg <- g_legend(clim.plot) 
+
+clim.plot=clim.plot + theme(legend.position="none")
+
 #temp models
 clim.sub= subset(clim.dev, region==3)
 summary(lm(TMEAN~YEAR, data= clim.sub))
@@ -297,16 +308,23 @@ summary(lm(TMEAN~YEAR, data= clim.sub))
 library(grid)
 
 setwd(paste(mydir, "figures\\", sep=""))
-pdf("ElevFig.pdf", height=8, width=8)
+pdf("Fig1.pdf", height=8, width=8)
 
 ##open pdf
-subvp.t<-viewport(width=.5,height=.38,x=.74,y=0.8)
+subvp.t<-viewport(width=.4,height=.38,x=.7,y=0.8)
 subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.36)
+subvp.l<-viewport(width=.2,height=.20,x=-0.29,y=0.8)
+
+leg$vp$x <- unit(.2, 'npc')
+leg$vp$y <- unit(.8, 'npc')
+
 ##Next, open the main graph which was stored in b by typing b at the prompt:
 aper1.map
 ##Then, superimpose the graph stored in a on the viewport as:
 print(elev.plot,vp=subvp.e)
 print(clim.plot,vp=subvp.t)
+#print(grid.draw(leg),vp=subvp.l)
+grid.draw(leg)
 dev.off()
  
 #============================================================
