@@ -1,11 +1,12 @@
 ### ANALYSIS OF COLIAS MUSEUM SPECIMENS
 
-mydir= "C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\MuseumTraits\\"
+mydir= "/Volumes/GoogleDrive/My\ Drive/Buckley/Work/MuseumTraits/"
+#mydir= "C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\MuseumTraits\\"
 #mydir= "C:\\Users\\lbuckley\\Documents\\MuseumTraits\\"
 #mydir= "C:\\Users\\Buckley\\Google Drive\\ColiasEvolution\\HistoricalAnalysis\\"
 
 #install packages
-#install.packages(c("ecodist","spdep","faraway","MuMIn","lmtest"))
+#install.packages(c("Rmisc","ecodist","spdep","faraway","MuMIn","lmtest"))
 
 #load libraries
 library(sp)
@@ -26,15 +27,16 @@ library(plyr)
 library(ggmap)
 library(maps)
 library(mapdata)
+library(colorRamps)
 
-setwd(paste(mydir, "analysis\\", sep=""))
+setwd(paste(mydir, "analysis/", sep=""))
 source("spatial_functions_cleaned.R")
 
 #---------------------------
 #READ AND MANIPULATE DATA
 
 #read data
-setwd(paste(mydir, "data\\", sep=""))
+setwd(paste(mydir, "data/", sep=""))
 abs=read.csv("FullDataColiasMuseums.csv")
 
 #make longitude numeric
@@ -112,7 +114,7 @@ abs1.count= abs1.count[order(abs1.count$Group.1),1:3]
 #Region 3: BLUEHILL LO, 1,950.70 m http://climate.weather.gc.ca/climate_data/
 
 #Load
-setwd(paste(mydir, "data\\", sep=""))
+setwd(paste(mydir, "data/", sep=""))
 clim= read.csv("WeatherStationData_Regions.csv")
 
 #Region 2 weather station ~2000m too low, use ICAO environmental lapse rate of 6.5C/km to correct for purposed of plotting
@@ -141,7 +143,7 @@ mean.plot= ggplot(clim1) + geom_smooth(aes(J, TMEAN, group = YEAR, color = time.
 min.plot= ggplot(clim1) + geom_smooth(aes(J, TMIN, group = YEAR, color = time.per), alpha = 0.2, se=FALSE) +xlim(160,240)+theme_classic()+ylab("Daily minimum temperature (°C)") +xlab("day of year")+labs(color="Time period")+ scale_colour_manual(values = c("gray","black"))+theme(legend.position=c(0.6,0.3))
 
 #Fig S4
-setwd(paste(mydir, "figures\\", sep=""))
+setwd(paste(mydir, "figures/", sep=""))
 pdf("FigS4_TempSeasonality.pdf", height=5, width=12)
 
 plot_grid(max.plot, mean.plot, min.plot, align = "h", nrow = 1, rel_heights = c(1,1,1))
@@ -371,7 +373,7 @@ if(year.mod["P"]<0.05) fig2c= fig2c + geom_abline( aes(slope=year.mod["Estimate"
 library(grid)
 library(cowplot)
 
-setwd(paste(mydir, "figures\\", sep=""))
+setwd(paste(mydir, "figures/", sep=""))
 pdf("FigS1_Loveland.pdf", height=8, width=5)
 
 plot_grid(fig2a,fig2c, align = "v", nrow = 2, rel_heights = c(1,1.4))
@@ -439,8 +441,10 @@ dups= duplicated(absM.all$RegYrDoy)
 abs.t<- absM.all[which(dups==FALSE),]
 
 #Tdev 
-fig2a<- ggplot(data=abs.t, aes(x=Year, y = doy162to202))+geom_point(alpha=0.8) +theme_classic()+
-  ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")
+fig2a<- ggplot(data=abs.t, aes(x=Year, y = doy162to202, color=doy))+geom_point(alpha=0.8) +theme_classic()+
+  ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")+ theme(legend.position="right")+
+  scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="phenology (doy)")
 #add trendlines
 fig2a= fig2a+
  # geom_abline(aes(slope=tyear.slope,intercept=tyear.int))+
@@ -448,7 +452,8 @@ fig2a= fig2a+
 
 #Phenology
 fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.position="none")+ theme(legend.key.width=unit(1,"cm"))
+  xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = matlab.like(8))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="Tdevelopmental (°C)")
 #add trendlines
 fig2b= fig2b+
   geom_abline(aes(slope=pyear.slope,intercept=pyear.int))+
@@ -457,7 +462,10 @@ fig2b= fig2b+
 
 #melanism
 #by year
-fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Predicted Developmental Temperature (°C)")
+fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Tpupal))+geom_point(alpha=0.8) +
+  theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="right")+
+  scale_color_gradientn(colours = matlab.like(8))+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="Tpupal (°C)")
 
 #add trendlines
 fig2c= fig2c+
@@ -465,7 +473,7 @@ fig2c= fig2c+
   facet_wrap(~region.lab)
 
 #---------
-setwd(paste(mydir, "figures\\", sep=""))
+setwd(paste(mydir, "figures/", sep=""))
 pdf("Fig2_hist.pdf", height=10, width=8)
 
 plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1.4))
@@ -769,3 +777,65 @@ areg$grey= 1- (areg$mean_Standard- areg$min_Standard)/(255- areg$min_Standard)
 ggplot(data=areg, aes(x=Year, y = grey))+geom_point()+geom_smooth(method="lm")
 ggplot(data=areg, aes(x=Year, y = Corr.Val))+geom_point()+geom_smooth(method="lm")
 
+#^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#find unique
+absM.all$RegYrDoy= paste(absM.all$region, absM.all$Year, absM.all$doy, sep="" )
+dups= duplicated(absM.all$RegYrDoy)
+abs.t<- absM.all[which(dups==FALSE),]
+
+#Tdev 
+fig2a<- ggplot(data=absM.all, aes(x=Year, y = doy162to202, color=doy))+geom_point(alpha=0.8) +theme_classic()+
+  ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")+
+  scale_color_gradientn(colours = rev(heat.colors(5)))
+#add trendlines
+fig2a= fig2a+
+  # geom_abline(aes(slope=tyear.slope,intercept=tyear.int))+
+  facet_wrap(~region.lab) 
+
+#Phenology
+fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = rev(rainbow(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(1,"cm"))
+#add trendlines
+fig2b= fig2b+
+  geom_abline(aes(slope=pyear.slope,intercept=pyear.int))+
+  facet_wrap(~region.lab)
+#+ scale_color_gradientn(colours = topo.colors(5))
+
+#melanism
+#by year
+fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Predicted Developmental Temperature (°C)")
+
+#add trendlines
+fig2c= fig2c+
+  geom_abline(aes(slope=myear.slope,intercept=myear.int))+
+  facet_wrap(~region.lab)
+
+#^^^^^
+#doy ~ Tdevelopment
+f1= ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_classic()+
+ scale_color_gradientn(colours = rev(rainbow(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(1,"cm"))+
+ facet_wrap(~region.lab) +geom_smooth(method="lm")
+
+#mel ~Tpupal
+f2= ggplot(data=absM.all, aes(x=Tpupal, y = Corr.Val, color=Year))+geom_point(alpha=0.8) +theme_classic()+
+  scale_color_gradientn(colours = rev(rainbow(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(1,"cm"))+
+  facet_wrap(~region.lab) +geom_smooth(method="lm")
+
+#melanism
+#by year
+fig2cp<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Tpupal))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="bottom")+
+  scale_color_gradientn(colours = rev(rainbow(8)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Predicted Developmental Temperature (°C)")
+
+#add trendlines
+fig2cp= fig2cp+
+  geom_abline(aes(slope=myear.slope,intercept=myear.int))+
+  facet_wrap(~region.lab)
+
+#----
+setwd(paste(mydir, "figures/", sep=""))
+pdf("FigsExt.pdf", height=8, width=8)
+
+plot_grid(f1,f2, align = "v", nrow = 2, rel_heights = c(1,1.4))
+
+dev.off()
