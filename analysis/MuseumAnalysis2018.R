@@ -394,6 +394,8 @@ absM.all$myear.int= NA
 absM.all$myear.slope= NA
 absM.all$ryear.int= NA
 absM.all$ryear.slope= NA
+absM.all$ptdev.int= NA
+absM.all$ptdev.slope= NA
 
 #STATS
 for(reg in 1:3){
@@ -411,10 +413,12 @@ for(reg in 1:3){
   
   myear.mod= boot.sar.lm(y=areg$Corr.Val,x=areg$Year,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
   
+  ptdev.mod= boot.sar.lm(y=areg$doy,x=areg$doy162to202,lon=areg$lon,lat=areg$lat, sites= areg$YrSite, Nruns,Nsamp)
+  
   #save models
-  if(reg==1){tyear.mod1=tyear.mod; pyear.mod1=pyear.mod; myear.mod1=myear.mod}
-  if(reg==2){tyear.mod2=tyear.mod; pyear.mod2=pyear.mod; myear.mod2=myear.mod}
-  if(reg==3){tyear.mod3=tyear.mod; pyear.mod3=pyear.mod; myear.mod3=myear.mod}
+  if(reg==1){tyear.mod1=tyear.mod; pyear.mod1=pyear.mod; myear.mod1=myear.mod; ptdev.mod1=ptdev.mod}
+  if(reg==2){tyear.mod2=tyear.mod; pyear.mod2=pyear.mod; myear.mod2=myear.mod; ptdev.mod2=ptdev.mod}
+  if(reg==3){tyear.mod3=tyear.mod; pyear.mod3=pyear.mod; myear.mod3=myear.mod; ptdev.mod3=ptdev.mod}
   
   #save slope and intercept
   inds= which(absM.all$region==reg)
@@ -427,12 +431,16 @@ for(reg in 1:3){
   
   if(myear.mod["P"]<0.05) absM.all[inds,"myear.int"]= myear.mod["Intercept"]
   if(myear.mod["P"]<0.05) absM.all[inds,"myear.slope"]= myear.mod["Estimate"]
+  
+  if(ptdev.mod["P"]<0.05) absM.all[inds,"ptdev.int"]= ptdev.mod["Intercept"]
+  if(ptdev.mod["P"]<0.05) absM.all[inds,"ptdev.slope"]= ptdev.mod["Estimate"]
 }
 
 #---
 tyear.mod3
 pyear.mod3
 myear.mod3
+ptdev.mod3
 
 #--------------
 #find unique
@@ -441,8 +449,8 @@ dups= duplicated(absM.all$RegYrDoy)
 abs.t<- absM.all[which(dups==FALSE),]
 
 #Tdev 
-fig2a<- ggplot(data=abs.t, aes(x=Year, y = doy162to202, color=doy))+geom_point(alpha=0.8) +theme_classic()+
-  ylab("Developmental Temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")+ theme(legend.position="right")+
+fig2a<- ggplot(data=absM.all, aes(x=Year, y = doy162to202, color=doy))+geom_point(alpha=0.8) +theme_classic()+
+  ylab("Developmental temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")+ theme(legend.position="right")+
   scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
   labs(color="phenology (doy)")
 #add trendlines
@@ -451,9 +459,9 @@ fig2a= fig2a+
   facet_wrap(~region.lab) 
 
 #Phenology
-fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("year") +ylab("Phenology (doy)")+ scale_color_gradientn(colours = matlab.like(8))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
-  labs(color="Tdevelopmental (°C)")
+fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=Corr.Val ))+geom_point(alpha=0.8) +theme_classic()+
+  xlab("year") +ylab("Adult phenology (doy)")+ scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="wing melanism \n(gray level)")
 #add trendlines
 fig2b= fig2b+
   geom_abline(aes(slope=pyear.slope,intercept=pyear.int))+
@@ -465,7 +473,7 @@ fig2b= fig2b+
 fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Tpupal))+geom_point(alpha=0.8) +
   theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="right")+
   scale_color_gradientn(colours = matlab.like(8))+ theme(legend.key.width=unit(0.5,"cm"))+
-  labs(color="Tpupal (°C)")
+  labs(color="pupal \ntemperature (°C)")
 
 #add trendlines
 fig2c= fig2c+
@@ -474,9 +482,9 @@ fig2c= fig2c+
 
 #---------
 setwd(paste(mydir, "figures/", sep=""))
-pdf("Fig2_hist.pdf", height=10, width=8)
+pdf("Fig2_hist.pdf", height=9, width=8)
 
-plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1.4))
+plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1))
 
 dev.off()
 
@@ -628,6 +636,35 @@ if(reg==3){pty.mod3=pty.mod; mpy.mod3=mpy.mod; mty.mod3=mty.mod; mtp.mod3=mtp.mo
 }# loop regions
 
 #======================
+#Phen ~Tdevel plot
+
+#melanism
+#by year
+fig.pt<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Corr.Val))+geom_point(alpha=0.8) +
+  theme_classic()+ xlab("Developmental Temperature (°C)") +ylab("Adult phenology (doy)")+ theme(legend.position="right")+
+  scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="wing melanism\n(gray level)")
+
+#add trendlines
+fig.pt= fig.pt+
+  geom_abline(aes(slope=ptdev.slope,intercept=ptdev.int))+
+  facet_wrap(~region.lab)
+
+
+#mel~phen
+fig.mp<- ggplot(data=absM.all, aes(x=doy, y = Corr.Val, color=Tpupal))+geom_point(alpha=0.8) +
+  theme_classic()+ xlab("Adult phenology (doy)") +ylab("Wing melanism (gray level)")+ theme(legend.position="right")+
+  scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.key.width=unit(0.5,"cm"))+
+  labs(color="wing melanism\n(gray level)")+
+  facet_wrap(~region.lab)
+
+#add trendlines
+fig.mp= fig.mp+
+  geom_abline(aes(slope=ptdev.slope,intercept=ptdev.int))
+
+
+#------------
+
 #Residual plots
 
 absM.all$Corr.Resid= NA
@@ -669,17 +706,19 @@ for(reg in 1:3){
  } #end region loop
 
 #----------------
-fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("Year") +ylab("Residuals(Wing melanism) (gray level)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+labs(color="Predicted Developmental Temperature (°C)")
+fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=Tpupal))+geom_point(alpha=0.8) +theme_classic()+ 
+  xlab("Year") +ylab("Residuals(wing melanism) (gray level)")+ theme(legend.position="right")+
+  scale_color_gradientn(colours = matlab.like(8))+labs(color="pupal \ntemperature (°C)")
 #add trendlines
 fig4= fig4+
   geom_abline(aes(slope=ryear.slope,intercept=ryear.int))+
   facet_wrap(~region.lab)
 
 #---------
-setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig4_resid.pdf", height=4, width=8)
+setwd(paste(mydir, "figures/", sep=""))
+pdf("Fig4_resid.pdf", height=6, width=8)
 
-fig4
+plot_grid(fig.pt, fig4, align = "v", nrow = 2)
 
 dev.off()
 
