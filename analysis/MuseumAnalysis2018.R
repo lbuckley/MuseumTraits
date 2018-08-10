@@ -218,9 +218,10 @@ Nruns= 50 #50 #number of bootstrapp runs
 Nsamp= 15 #max sample size of butterflies per site per year
 
 #make region label
-absM.all$region.lab<-"Region 1"
-absM.all[which(absM.all$region==2), "region.lab"]<-"Region 2"
-absM.all[which(absM.all$region==3), "region.lab"]<-"Region 3"
+absM.all$region.lab<-"Southern RM"
+absM.all[which(absM.all$region==2), "region.lab"]<-"Northern RM"
+absM.all[which(absM.all$region==3), "region.lab"]<-"Canadian RM"
+absM.all$region.lab<- factor(absM.all$region.lab, levels=c("Southern RM", "Northern RM", "Canadian RM") )
 
 #=======================
 # Result 1. Maps and overview plots
@@ -237,16 +238,21 @@ bbox[4]= bbox[4] +5
 
 map_loc <- get_map(location = bbox, source = 'google', maptype = 'terrain')
 map1=ggmap(map_loc, margins=FALSE) #
+map1 <- map1 + scale_x_continuous(limits=c(-121.5, -102.5))
 
 #elevation
-aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+scale_color_gradientn(colours = heat.colors(5))+ theme(legend.key.width=unit(1,"cm"))
+aper1.map<- map1 +geom_point(data=absM.all, aes(y=Lat, x=Long, color=estElevation) ) + coord_cartesian() + 
+  labs(x = "Longitude (°)",y="Latitude (°)", color="Elevation (m)") + theme(legend.position="bottom")+
+  scale_color_gradientn(colours = heat.colors(5))+ theme(legend.key.width=unit(1,"cm"))+
+  labs(tag = "(a)")
 
 #-------------------
 #Elevation inset plot
 
 #Lower elevation at higher lats
 elev.plot<-ggplot(data=absM.all, aes(x=lat, y = estElevation, color=region.lab))+geom_point(alpha=0.8) +theme_classic()+
-  labs(x = "Latitude (°)",y="Elevation (m)")+ theme(legend.position="none")
+  labs(x = "Latitude (°)",y="Elevation (m)")+ theme(legend.position=c(0.6,0.8))+labs(color="Region")+
+  labs(tag = "(b)")
   # , color=doy #geom_smooth(method="lm")+
 
 #-------------------
@@ -267,8 +273,23 @@ clim.dev$region.f=clim.dev$Group.1
 #cut post 1953
 clim.dev= subset(clim.dev, YEAR>=1953 & YEAR<=2013)
 
+#calculate SD AND DTR
+clim.sd= subset(clim, clim$J %in% 162:202)
+clim.sd$dtr= clim.sd$TMAX- clim.sd$TMIN
+clim.sd= aggregate(clim.sd, list(clim.sd$region.f, clim.sd$YEAR), FUN="sd", na.rm=TRUE)
+clim.sd$region.f=clim.sd$Group.1
+clim.sd$YEAR=clim.sd$Group.2
+
+ggplot(data=clim.sd, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=0.5) +
+  theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)
+ggplot(data=clim.sd, aes(x=YEAR, y = dtr, color=region.f))+geom_line(size=0.5) +
+  theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)
+
+#-----
 #time series for three regions
-clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=0.5) +theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)+ylab("Developmental Temperature (°C)") +xlab("Year")+labs(color="Region") #+ theme(legend.position = c(0.2, 0.8))
+clim.plot= ggplot(data=clim.dev, aes(x=YEAR, y = TMEAN, color=region.f))+geom_line(size=0.5) +
+  theme_classic()+geom_smooth(method="lm",se=FALSE,size=1)+ylab("Developmental Temperature (°C)") +
+  xlab("Year")+labs(color="Region")+labs(tag="(c)") #+ theme(legend.position = c(0.2, 0.8))
 
 #Extract Legend 
 g_legend<-function(a.gplot){ 
@@ -320,26 +341,35 @@ summary(lm(TMEAN~YEAR, data= clim.sub))
 #COMBINE
 library(grid)
 
-setwd(paste(mydir, "figures\\", sep=""))
-pdf("Fig1.pdf", height=8, width=8)
+# ##open pdf
+# subvp.t<-viewport(width=.4,height=.38,x=.7,y=0.8)
+# subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.36)
+# subvp.l<-viewport(width=.2,height=.20,x=-0.29,y=0.8)
+# 
+# leg$vp$x <- unit(.2, 'npc')
+# leg$vp$y <- unit(.8, 'npc')
+# 
+# ##Next, open the main graph which was stored in b by typing b at the prompt:
+# aper1.map
+# ##Then, superimpose the graph stored in a on the viewport as:
+# print(elev.plot,vp=subvp.e)
+# print(clim.plot,vp=subvp.t)
+# #print(grid.draw(leg),vp=subvp.l)
+# grid.draw(leg)
 
-##open pdf
-subvp.t<-viewport(width=.4,height=.38,x=.7,y=0.8)
-subvp.e<-viewport(width=.4,height=.40,x=.29,y=0.36)
-subvp.l<-viewport(width=.2,height=.20,x=-0.29,y=0.8)
+### VERSION WITH PANELS
+#setwd(paste(mydir, "figures/", sep=""))
+setwd(paste(mydir, "manuscript/PRSbRev2/figs/", sep=""))
+pdf("Fig1.pdf", height=8, width=10)
 
-leg$vp$x <- unit(.2, 'npc')
-leg$vp$y <- unit(.8, 'npc')
+pushViewport(viewport(layout = grid.layout(2, 2)))
+vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
+print(aper1.map, vp = vplayout(1:2, 1))
+print(elev.plot, vp = vplayout(1, 2))
+print(clim.plot, vp = vplayout(2, 2))
 
-##Next, open the main graph which was stored in b by typing b at the prompt:
-aper1.map
-##Then, superimpose the graph stored in a on the viewport as:
-print(elev.plot,vp=subvp.e)
-print(clim.plot,vp=subvp.t)
-#print(grid.draw(leg),vp=subvp.l)
-grid.draw(leg)
 dev.off()
- 
+
 #============================================================
 
 #LOVELAND PASS
@@ -347,7 +377,7 @@ dev.off()
 abs.sub1= absM.all[absM.all$NewLocation =="EisenhowerTunnel", ]
 
 #-------------------------
-#Statistics
+#Statisticsgetwd()
 
 abs.sub1$siteID= match(abs.sub1$NewLocation, sites)
 abs.sub1$YrSite= paste(abs.sub1$Year, abs.sub1$siteID, sep="")
@@ -360,12 +390,12 @@ year.mod= boot.lm(x=abs.sub1$Year, y = abs.sub1$Corr.Val, sites= abs.sub1$YrSite
 #------------------------
 #phenology 
 fig2a=ggplot(data=abs.sub1, aes(x=Year, y = doy, color=doy162to202 ))+geom_point(alpha=0.8) +theme_classic()+
-  xlab("Year") +ylab("Phenology (doy)") + theme(legend.position="bottom") +scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.position="none")
+  xlab("Year") +ylab("Phenology (doy)") + theme(legend.position="bottom") +scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.position="none")+labs(tag="(a)")
 #add trend
 if(phen.mod["P"]<0.05) fig2a= fig2a + geom_abline( aes(slope=phen.mod["Estimate"],intercept=phen.mod["Intercept"]))
 
 #Results in annual pattern
-fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="bottom")+ xlab("Year") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")
+fig2c=ggplot(data=abs.sub1, aes(x=Year, y = Corr.Val, color=doy162to202))+geom_point(alpha=0.8) +theme_classic() + theme(legend.position="bottom")+ xlab("Year") +ylab("Wing melanism (grey level)")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")+labs(tag="(b)")
 #add trend
 if(year.mod["P"]<0.05) fig2c= fig2c + geom_abline( aes(slope=year.mod["Estimate"],intercept=year.mod["Intercept"]))
 
@@ -373,8 +403,8 @@ if(year.mod["P"]<0.05) fig2c= fig2c + geom_abline( aes(slope=year.mod["Estimate"
 library(grid)
 library(cowplot)
 
-setwd(paste(mydir, "figures/", sep=""))
-pdf("FigS1_Loveland.pdf", height=8, width=5)
+setwd(paste(mydir, "manuscript/PRSbRev2/figs/", sep=""))
+pdf("FigS1_Loveland.pdf", height=6, width=4)
 
 plot_grid(fig2a,fig2c, align = "v", nrow = 2, rel_heights = c(1,1.4))
 #plot_grid(fig2a, blank, fig2b,fig2bt, fig2c,blank, fig2d, fig2dt, align = "v", nrow = 4, rel_heights = c(1,1.4,1,1.4))
@@ -452,7 +482,7 @@ abs.t<- absM.all[which(dups==FALSE),]
 fig2a<- ggplot(data=absM.all, aes(x=Year, y = doy162to202, color=doy))+geom_point(alpha=0.8) +theme_classic()+
   ylab("Developmental temperature (°C)") +xlab("year")+geom_smooth(method=lm, se=FALSE,color="black")+ theme(legend.position="right")+
   scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.position="right")+ theme(legend.key.width=unit(0.5,"cm"))+
-  labs(color="phenology (doy)")
+  labs(color="phenology (doy)")+labs(tag="(a)")
 #add trendlines
 fig2a= fig2a+
  # geom_abline(aes(slope=tyear.slope,intercept=tyear.int))+
@@ -465,7 +495,7 @@ fig2b<- ggplot(data=absM.all, aes(x=Year, y = doy, color=Corr.Val ))+geom_point(
 #add trendlines
 fig2b= fig2b+
   geom_abline(aes(slope=pyear.slope,intercept=pyear.int))+
-  facet_wrap(~region.lab)
+  facet_wrap(~region.lab)+labs(tag="(c)")
 #+ scale_color_gradientn(colours = topo.colors(5))
 
 #melanism
@@ -473,7 +503,7 @@ fig2b= fig2b+
 fig2c<- ggplot(data=absM.all, aes(x=Year, y = Corr.Val, color=Tpupal))+geom_point(alpha=0.8) +
   theme_classic()+ xlab("year") +ylab("Wing melanism (gray level)")+ theme(legend.position="right")+
   scale_color_gradientn(colours = matlab.like(8))+ theme(legend.key.width=unit(0.5,"cm"))+
-  labs(color="pupal \ntemperature (°C)")
+  labs(color="pupal \ntemperature (°C)")+labs(tag="(b)")
 
 #add trendlines
 fig2c= fig2c+
@@ -481,10 +511,10 @@ fig2c= fig2c+
   facet_wrap(~region.lab)
 
 #---------
-setwd(paste(mydir, "figures/", sep=""))
+#setwd(paste(mydir, "figures/", sep=""))
 pdf("Fig2_hist.pdf", height=9, width=8)
 
-plot_grid(fig2a, fig2b, fig2c, align = "v", nrow = 3, rel_heights = c(1,1,1))
+plot_grid(fig2a, fig2c, fig2b, align = "v", nrow = 3, rel_heights = c(1,1,1))
 
 dev.off()
 
@@ -643,7 +673,7 @@ if(reg==3){pty.mod3=pty.mod; mpy.mod3=mpy.mod; mty.mod3=mty.mod; mtp.mod3=mtp.mo
 fig.pt<- ggplot(data=absM.all, aes(x=doy162to202, y = doy, color=Corr.Val))+geom_point(alpha=0.8) +
   theme_classic()+ xlab("Developmental Temperature (°C)") +ylab("Adult phenology (doy)")+ theme(legend.position="right")+
   scale_color_gradientn(colours = rev(matlab.like(8)))+ theme(legend.key.width=unit(0.5,"cm"))+
-  labs(color="wing melanism\n(gray level)")
+  labs(color="wing melanism\n(gray level)")+labs(tag="(a)")
 
 #add trendlines
 fig.pt= fig.pt+
@@ -708,14 +738,14 @@ for(reg in 1:3){
 #----------------
 fig4<- ggplot(data=absM.all, aes(x=Year, y = Corr.Resid, color=Tpupal))+geom_point(alpha=0.8) +theme_classic()+ 
   xlab("Year") +ylab("Residuals(wing melanism) (gray level)")+ theme(legend.position="right")+
-  scale_color_gradientn(colours = matlab.like(8))+labs(color="pupal \ntemperature (°C)")
+  scale_color_gradientn(colours = matlab.like(8))+labs(color="pupal \ntemperature (°C)")+labs(tag="(b)")
 #add trendlines
 fig4= fig4+
   geom_abline(aes(slope=ryear.slope,intercept=ryear.int))+
   facet_wrap(~region.lab)
 
 #---------
-setwd(paste(mydir, "figures/", sep=""))
+#setwd(paste(mydir, "figures/", sep=""))
 pdf("Fig4_resid.pdf", height=6, width=8)
 
 plot_grid(fig.pt, fig4, align = "v", nrow = 2)
@@ -762,7 +792,7 @@ for(reg in 1:3){
 #--------------
 #thorax
 #by year
-figs2a<- ggplot(data=absM.all, aes(x=Year, y = FWL, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Forewing length (mm)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")
+figs2a<- ggplot(data=absM.all, aes(x=Year, y = FWL, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Forewing length (mm)")+ theme(legend.position="none")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")+labs(tag="(a)")
 
 #add trendlines
 figs2a= figs2a+
@@ -772,7 +802,7 @@ figs2a= figs2a+
 #-------------------
 #setae
 #by year
-figs2b<- ggplot(data=absM.all, aes(x=Year, y = Thorax, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Setae length (mm)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")
+figs2b<- ggplot(data=absM.all, aes(x=Year, y = Thorax, color=doy162to202))+geom_point(alpha=0.8) +theme_classic()+ xlab("year") +ylab("Setae length (mm)")+ theme(legend.position="bottom")+scale_color_gradientn(colours = rev(heat.colors(5)))+ theme(legend.key.width=unit(1,"cm"))+labs(color="Developmental Temperature (°C)")+labs(tag="(b)")
 
 #add trendlines
 figs2b= figs2b+
